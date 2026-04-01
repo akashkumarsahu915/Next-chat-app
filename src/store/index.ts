@@ -5,9 +5,11 @@ import friendsReducer from './slices/friendsSlice';
 import uiReducer from './slices/uiSlice';
 import toastReducer from './slices/toastSlice';
 import notificationReducer from './slices/notificationSlice';
+import apiSlice from './rtk/apislice';
 
 export const store = configureStore({
   reducer: {
+    [apiSlice.reducerPath]: apiSlice.reducer,
     auth: authReducer,
     chat: chatReducer,
     friends: friendsReducer,
@@ -15,6 +17,8 @@ export const store = configureStore({
     toast: toastReducer,
     notifications: notificationReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(apiSlice.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

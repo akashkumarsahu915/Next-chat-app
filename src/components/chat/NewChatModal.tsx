@@ -13,11 +13,11 @@ import { User, Chat } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 
 const MOCK_USERS: User[] = [
-  { id: '2', uid: '234567', username: 'Sarah Wilson', email: 'sarah@example.com', isOnline: true, isPrivate: false, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah' },
-  { id: '3', uid: '345678', username: 'John Doe', email: 'john@example.com', isOnline: false, isPrivate: false, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John' },
-  { id: '4', uid: '456789', username: 'Alex Rivera', email: 'alex@example.com', isOnline: true, isPrivate: false, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' },
-  { id: '5', uid: '567890', username: 'Emma Thompson', email: 'emma@example.com', isOnline: true, isPrivate: false, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma' },
-  { id: '6', uid: '678901', username: 'Michael Chen', email: 'michael@example.com', isOnline: false, isPrivate: false, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Michael' },
+  { _id: '2', uid: '234567', username: 'Sarah Wilson', email: 'sarah@example.com', isOnline: true, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah' },
+  { _id: '3', uid: '345678', username: 'John Doe', email: 'john@example.com', isOnline: false, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John' },
+  { _id: '4', uid: '456789', username: 'Alex Rivera', email: 'alex@example.com', isOnline: true, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' },
+  { _id: '5', uid: '567890', username: 'Emma Thompson', email: 'emma@example.com', isOnline: true, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma' },
+  { _id: '6', uid: '678901', username: 'Michael Chen', email: 'michael@example.com', isOnline: false, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Michael' },
 ];
 
 export function NewChatModal() {
@@ -35,8 +35,8 @@ export function NewChatModal() {
   );
 
   const toggleUser = (user: User) => {
-    if (selectedUsers.find(u => u.id === user.id)) {
-      setSelectedUsers(selectedUsers.filter(u => u.id !== user.id));
+    if (selectedUsers.find(u => u._id === user._id)) {
+      setSelectedUsers(selectedUsers.filter(u => u._id !== user._id));
     } else {
       if (!isGroup) {
         setSelectedUsers([user]);
@@ -131,10 +131,10 @@ export function NewChatModal() {
 
           <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
             {filteredUsers.map((user) => {
-              const isSelected = selectedUsers.find(u => u.id === user.id);
+              const isSelected = selectedUsers.find(u => u._id === user._id);
               return (
                 <button
-                  key={user.id}
+                  key={user._id}
                   onClick={() => toggleUser(user)}
                   className={cn(
                     "w-full flex items-center space-x-3 p-3 rounded-xl transition-all hover:bg-muted",
@@ -142,7 +142,7 @@ export function NewChatModal() {
                   )}
                 >
                   <div className="relative">
-                    <Avatar name={user.username} src={user.avatar} isOnline={user.isOnline} />
+                    <Avatar name={user.username} src={user.profilePicture} isOnline={user.isOnline} />
                     {isSelected && (
                       <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5 border-2 border-card">
                         <Check className="h-3 w-3" />

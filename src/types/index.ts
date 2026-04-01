@@ -1,31 +1,48 @@
+export * from './auth';
+
 export interface User {
-  id: string;
+  _id: string;
   uid: string; // Unique 6-digit ID
   username: string;
   email: string;
-  avatar?: string;
+  profilePicture?: string;
   bio?: string;
   status?: string;
-  isOnline: boolean;
-  isPrivate: boolean;
+  isOnline?: boolean;
+  isPrivate?: boolean;
+  interests?: string[];
+  notificationSettings?: {
+    pushEnabled: boolean;
+    newMessages: boolean;
+    friendRequests: boolean;
+    systemAlerts: boolean;
+  };
 }
 
 export interface Message {
-  id: string;
-  senderId: string;
+  _id: string;
+  chatId: string;
+  senderId: string | Partial<User>;
   content: string;
-  timestamp: string;
-  type: 'text' | 'image';
+  timestamp?: string; // Legacy fallback
+  createdAt: string;
+  updatedAt: string;
+  type: 'text' | 'image' | 'file';
   status: 'sent' | 'delivered' | 'read';
+  readBy?: string[];
 }
 
 export interface Chat {
-  id: string;
-  name?: string;
+  _id: string;
+  name?: string; // Local display name fallback
+  groupName?: string; // Backend group name
   isGroup: boolean;
   participants: User[];
   lastMessage?: Message;
-  unreadCount: number;
+  unreadCount?: number; // Legacy fallback
+  unreadCounts?: Record<string, number>; // Backend unread counts mapping
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface FriendRequest {

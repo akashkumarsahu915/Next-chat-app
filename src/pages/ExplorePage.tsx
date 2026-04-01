@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Layout } from '../components/layout/Layout';
 import { MobileHeader } from '../components/layout/MobileHeader';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -12,6 +11,7 @@ import { addSentRequest } from '../store/slices/friendsSlice';
 import { RootState } from '../store';
 import { cn } from '../lib/utils';
 import { notificationService } from '../lib/notificationService';
+import { User } from '../types';
 
 export function ExplorePage() {
   const dispatch = useDispatch();
@@ -23,54 +23,46 @@ export function ExplorePage() {
   const [selectedInterest, setSelectedInterest] = useState<string | null>(null);
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
 
-  const mockUsers = [
-    { id: '1', uid: '123456', username: 'Emma Watson', bio: 'Actress and activist', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma', interests: ['Acting', 'Activism', 'Books'] },
-    { id: '2', uid: '234567', username: 'Liam Neeson', bio: 'I have a very particular set of skills', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Liam', interests: ['Acting', 'Action', 'Movies'] },
-    { id: '3', uid: '345678', username: 'Sophia Chen', bio: 'Digital artist & coffee lover', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophia', interests: ['Art', 'Coffee', 'Design'] },
-    { id: '4', uid: '456789', username: 'Marcus Aurelius', bio: 'Stoic philosopher', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus', interests: ['Philosophy', 'History', 'Stoicism'] },
-    { id: '5', uid: '567890', username: 'Olivia Wilde', bio: 'Director & dreamer', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Olivia', interests: ['Directing', 'Movies', 'Fashion'] },
-    { id: '6', uid: '678901', username: 'David Goggins', bio: 'Stay hard!', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David', interests: ['Fitness', 'Motivation', 'Running'] },
+  const mockUsers: User[] = [
+    { _id: '1', uid: '123456', username: 'Emma Watson', bio: 'Actress and activist', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma', interests: ['Acting', 'Activism', 'Books'], isOnline: false, isPrivate: false, email: 'emma@example.com' },
+    { _id: '2', uid: '234567', username: 'Liam Neeson', bio: 'I have a very particular set of skills', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Liam', interests: ['Acting', 'Action', 'Movies'], isOnline: true, isPrivate: false, email: 'liam@example.com' },
+    { _id: '3', uid: '345678', username: 'Sophia Chen', bio: 'Digital artist & coffee lover', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophia', interests: ['Art', 'Coffee', 'Design'], isOnline: false, isPrivate: true, email: 'sophia@example.com' },
+    { _id: '4', uid: '456789', username: 'Marcus Aurelius', bio: 'Stoic philosopher', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus', interests: ['Philosophy', 'History', 'Stoicism'], isOnline: true, isPrivate: false, email: 'marcus@example.com' },
+    { _id: '5', uid: '567890', username: 'Olivia Wilde', bio: 'Director & dreamer', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Olivia', interests: ['Directing', 'Movies', 'Fashion'], isOnline: false, isPrivate: false, email: 'olivia@example.com' },
+    { _id: '6', uid: '678901', username: 'David Goggins', bio: 'Stay hard!', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David', interests: ['Fitness', 'Motivation', 'Running'], isOnline: true, isPrivate: false, email: 'david@example.com' },
   ];
 
-  const allInterests = Array.from(new Set(mockUsers.flatMap(u => u.interests))).sort();
+  const allInterests = Array.from(new Set(mockUsers.flatMap(u => u.interests || []))).sort();
 
   const filteredUsers = mockUsers.filter(user => {
     // Filter out current user
-    if (currentUser && user.id === currentUser.id) return false;
+    if (currentUser && user._id === currentUser._id) return false;
 
     // Filter out blocked users
-    if (blockedUserIds.includes(user.id)) return false;
+    if (blockedUserIds.includes(user._id)) return false;
 
     // Filter out existing friends and pending requests
-    const isFriend = friends.some(f => f.id === user.id);
-    const isPending = sentRequests.some(r => r.to.id === user.id);
+    const isFriend = friends.some(f => f._id === user._id);
+    const isPending = sentRequests.some(r => r.to._id === user._id);
     
     if (isFriend || isPending) return false;
 
     const matchesSearch = 
       user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.interests.some(interest => interest.toLowerCase().includes(searchQuery.toLowerCase()));
+      (user.interests || []).some(interest => interest.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    const matchesInterest = !selectedInterest || user.interests.includes(selectedInterest);
+    const matchesInterest = !selectedInterest || (user.interests || []).includes(selectedInterest);
     
     return matchesSearch && matchesInterest;
   });
 
-  const handleAddFriend = (user: any) => {
+  const handleAddFriend = (user: User) => {
     if (!currentUser) return;
 
     const newRequest = {
       id: Math.random().toString(36).substring(2, 9),
       from: currentUser,
-      to: {
-        id: user.id,
-        uid: user.uid,
-        username: user.username,
-        avatar: user.avatar,
-        isOnline: false,
-        isPrivate: false,
-        email: '',
-      },
+      to: user,
       status: 'pending' as const,
       timestamp: new Date().toISOString(),
     };
@@ -88,7 +80,7 @@ export function ExplorePage() {
   };
 
   return (
-    <Layout>
+    <>
       <MobileHeader title="Explore" />
       <div className="flex-1 overflow-y-auto bg-background p-6 sm:p-8">
         <div className="max-w-4xl mx-auto">
@@ -165,29 +157,29 @@ export function ExplorePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-20">
             {filteredUsers.map((user, i) => (
               <motion.div
-                key={user.id}
+                key={user._id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
                 className="bg-card p-5 rounded-[2rem] shadow-sm border border-border flex flex-col hover:shadow-md transition-all relative group h-[220px]"
-                onMouseEnter={() => setHoveredUserId(user.id)}
+                onMouseEnter={() => setHoveredUserId(user._id)}
                 onMouseLeave={() => setHoveredUserId(null)}
               >
                 <div className="flex items-start space-x-4 mb-3">
-                  <Avatar name={user.username} src={user.avatar} size="lg" className="shrink-0" />
+                  <Avatar name={user.username} src={user.profilePicture} size="lg" className="shrink-0" />
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-foreground truncate text-base">{user.username}</h3>
                     <p className="text-xs text-muted-foreground line-clamp-2 h-8 mb-2 leading-relaxed">
                       {user.bio}
                     </p>
                     <div className="flex flex-wrap gap-1">
-                      {user.interests.slice(0, 2).map(interest => (
+                      {(user.interests || []).slice(0, 2).map(interest => (
                         <span key={interest} className="text-[9px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-semibold uppercase tracking-wider">
                           {interest}
                         </span>
                       ))}
-                      {user.interests.length > 2 && (
-                        <span className="text-[9px] text-muted-foreground font-medium">+{user.interests.length - 2}</span>
+                      {(user.interests || []).length > 2 && (
+                        <span className="text-[9px] text-muted-foreground font-medium">+{(user.interests || []).length - 2}</span>
                       )}
                     </div>
                   </div>
@@ -217,7 +209,7 @@ export function ExplorePage() {
 
                 {/* Profile Preview Popover */}
                 <AnimatePresence>
-                  {hoveredUserId === user.id && (
+                  {hoveredUserId === user._id && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9, y: 10 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -225,7 +217,7 @@ export function ExplorePage() {
                       className="absolute bottom-full left-0 mb-2 w-64 bg-card border border-border rounded-2xl shadow-2xl z-50 p-4 pointer-events-none"
                     >
                       <div className="flex items-center space-x-3 mb-3">
-                        <Avatar name={user.username} src={user.avatar} size="md" />
+                        <Avatar name={user.username} src={user.profilePicture} size="md" />
                         <div>
                           <h4 className="font-bold text-sm">{user.username}</h4>
                           <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Profile Preview</p>
@@ -237,7 +229,7 @@ export function ExplorePage() {
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Interests</p>
                         <div className="flex flex-wrap gap-1">
-                          {user.interests.map(interest => (
+                          {(user.interests || []).map(interest => (
                             <span key={interest} className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                               {interest}
                             </span>
@@ -263,9 +255,9 @@ export function ExplorePage() {
               <p className="text-muted-foreground">No users found matching your criteria</p>
               {(searchQuery || selectedInterest) && (
                 <Button 
-                  variant="link" 
+                  variant="ghost" 
                   onClick={() => { setSearchQuery(''); setSelectedInterest(null); }}
-                  className="mt-2"
+                  className="mt-2 text-primary hover:underline"
                 >
                   Clear all filters
                 </Button>
@@ -274,6 +266,6 @@ export function ExplorePage() {
           )}
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

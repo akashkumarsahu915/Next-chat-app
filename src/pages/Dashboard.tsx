@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
-import { addMessage, setChats } from '../store/slices/chatSlice';
-import { Layout } from '../components/layout/Layout';
+import { addMessage, setMessages } from '../store/slices/chatSlice';
 import { MobileHeader } from '../components/layout/MobileHeader';
 import { ChatHeader } from '../components/chat/ChatHeader';
 import { ChatBubble } from '../components/chat/ChatBubble';
@@ -13,16 +12,29 @@ import { notificationService } from '../lib/notificationService';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { motion, AnimatePresence } from 'motion/react';
+import { useGetChatsQuery, useGetMessagesQuery, useSendMessageMutation, useMarkChatAsReadMutation } from '../store/rtk/apis/chat.slice';
 
 export function Dashboard() {
   const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { chats, selectedChatId, messages, isTyping } = useSelector((state: RootState) => state.chat);
+  const { selectedChatId, messages, isTyping } = useSelector((state: RootState) => state.chat);
   const { notificationSettings } = useSelector((state: RootState) => state.ui);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  const selectedChat = chats.find(c => c.id === selectedChatId);
+  const { data: chatData } = useGetChatsQuery();
+  const [sendMessage] = useSendMessageMutation();
+  const [markAsRead] = useMarkChatAsReadMutation();
+  const markAsReadRef = useRef<string | null>(null);
+
+  // Fetch message history when selectedChatId changes
+  const { data: historyData, isLoading: isHistoryLoading } = useGetMessagesQuery(
+    { chatId: selectedChatId as string, page: 1, limit: 20 },
+    { skip: !selectedChatId }
+  );
+
+  const chats = chatData?.chats || [];
+  const selectedChat = chats.find(c => c._id === selectedChatId);
   const currentMessages = selectedChatId ? messages[selectedChatId] || [] : [];
   const isOtherTyping = selectedChatId ? isTyping[selectedChatId] : false;
 
@@ -38,31 +50,28 @@ export function Dashboard() {
   const handleScroll = () => {
     if (scrollRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      // Show button if user is more than 300px away from bottom
       const isAtBottom = scrollHeight - scrollTop - clientHeight < 300;
       setShowScrollToBottom(!isAtBottom);
     }
   };
 
+  // Mark as read when selecting chat
   useEffect(() => {
-    // Mock initial chats
-    dispatch(setChats([
-      {
-        id: 'chat-1',
-        isGroup: false,
-        participants: [{ id: '2', uid: '234567', username: 'Sarah Wilson', email: 'sarah@example.com', isOnline: true, isPrivate: false, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah' }],
-        unreadCount: 2,
-        lastMessage: { id: 'm1', senderId: '2', content: 'Hey, how are you?', timestamp: new Date().toISOString(), type: 'text', status: 'read' }
-      },
-      {
-        id: 'chat-2',
-        isGroup: false,
-        participants: [{ id: '3', uid: '345678', username: 'John Doe', email: 'john@example.com', isOnline: false, isPrivate: false, avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John' }],
-        unreadCount: 0,
-        lastMessage: { id: 'm2', senderId: '1', content: 'See you tomorrow!', timestamp: new Date(Date.now() - 3600000).toISOString(), type: 'text', status: 'read' }
-      }
-    ]));
-  }, [dispatch]);
+    if (selectedChatId && markAsReadRef.current !== selectedChatId) {
+      markAsRead(selectedChatId);
+      markAsReadRef.current = selectedChatId;
+    }
+  }, [selectedChatId, markAsRead]);
+
+  // Sync history messages to Redux store
+  useEffect(() => {
+    if (historyData?.messages && selectedChatId) {
+      dispatch(setMessages({
+        chatId: selectedChatId,
+        messages: historyData.messages
+      }));
+    }
+  }, [historyData, selectedChatId, dispatch]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -70,65 +79,72 @@ export function Dashboard() {
     }
   }, [currentMessages]);
 
-  const handleSendMessage = (content: string, type: 'text' | 'image') => {
+  const handleSendMessage = async (content: string, type: 'text' | 'image') => {
     if (!selectedChatId || !user) return;
 
+    // Optional: Optimistic update
+    const tempId = Math.random().toString(36).substr(2, 9);
     const newMessage: Message = {
-      id: Math.random().toString(36).substr(2, 9),
-      senderId: user.id,
+      _id: tempId,
+      chatId: selectedChatId,
+      senderId: user._id,
       content,
-      timestamp: new Date().toISOString(),
-      type,
-      status: 'sent'
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      type: type as any,
+      status: 'sending'
     };
-
     dispatch(addMessage({ chatId: selectedChatId, message: newMessage }));
 
-    // Mock response
-    setTimeout(async () => {
-      const response: Message = {
-        id: Math.random().toString(36).substr(2, 9),
-        senderId: selectedChat?.participants[0].id || 'bot',
-        content: `Thanks for the ${type}!`,
-        timestamp: new Date().toISOString(),
-        type: 'text',
-        status: 'read'
-      };
-      dispatch(addMessage({ chatId: selectedChatId, message: response }));
-      
-      // Trigger notification if enabled
-      if (notificationSettings.pushEnabled && notificationSettings.newMessages) {
-        await notificationService.notify(
-          `New message from ${selectedChat?.participants[0].username}`,
-          response.content,
-          'message'
-        );
-      }
-    }, 1000);
+    try {
+      await sendMessage({
+        chatId: selectedChatId,
+        content,
+        type
+      }).unwrap();
+
+      // The history will automatically re-fetch due to tag invalidation
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Optional: handle error UI
+    }
   };
 
   return (
-    <Layout>
+    <>
       {selectedChat ? (
-        <div className="flex-1 flex flex-col h-full bg-background relative">
+        <div className="flex-1 flex flex-col h-full bg-background relative uppercase-none">
           <ChatHeader chat={selectedChat} />
-          <div 
+
+          <div
             ref={scrollRef}
             onScroll={handleScroll}
             className="flex-1 overflow-y-auto p-4 scroll-smooth"
           >
-            {currentMessages.length === 0 ? (
+            {isHistoryLoading && currentMessages.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              </div>
+            ) : currentMessages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400">
                 <p className="text-sm">No messages yet. Say hi!</p>
               </div>
             ) : (
               currentMessages.map((msg) => (
-                <ChatBubble 
-                  key={msg.id}
-                  message={msg} 
-                  isOwn={msg.senderId === user?.id} 
-                  senderName={msg.senderId === user?.id ? user.username : selectedChat.participants[0].username}
-                  avatarSrc={msg.senderId === user?.id ? user.avatar : selectedChat.participants[0].avatar}
+                <ChatBubble
+                  key={msg._id}
+                  message={msg}
+                  isOwn={(typeof msg.senderId === 'string' ? msg.senderId : msg.senderId._id) === user?._id}
+                  senderName={
+                    (typeof msg.senderId === 'string' ? msg.senderId : msg.senderId._id) === user?._id
+                      ? user.username
+                      : (typeof msg.senderId === 'string' ? 'Someone' : msg.senderId.username || 'Someone')
+                  }
+                  avatarSrc={
+                    (typeof msg.senderId === 'string' ? msg.senderId : msg.senderId._id) === user?._id
+                      ? user.profilePicture
+                      : (typeof msg.senderId === 'string' ? undefined : msg.senderId.profilePicture)
+                  }
                   showAvatar={true}
                 />
               ))
@@ -141,7 +157,7 @@ export function Dashboard() {
                   <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
                 </div>
                 <span className="text-xs text-slate-400 italic">
-                  {selectedChat.participants[0].username} is typing...
+                  {selectedChat?.isGroup ? 'Someone' : selectedChat?.participants.find(p => p._id !== user?._id)?.username} is typing...
                 </span>
               </div>
             )}
@@ -169,11 +185,11 @@ export function Dashboard() {
           <MessageInput onSendMessage={handleSendMessage} />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 flex flex-col h-full uppercase-none">
           <MobileHeader title="NexChat" />
           <EmptyState />
         </div>
       )}
-    </Layout>
+    </>
   );
 }

@@ -15,6 +15,9 @@ import { SettingsPage } from './pages/SettingsPage';
 import { cn } from './lib/utils';
 import { useEffect } from 'react';
 import { notificationService } from './lib/notificationService';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { PublicRoute } from './components/auth/PublicRoute';
+import { Layout } from './components/layout/Layout';
 
 function AppRoutes() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -29,21 +32,24 @@ function AppRoutes() {
   return (
     <div className={cn('min-h-[100dvh] w-full transition-colors duration-300', theme === 'dark' ? 'dark bg-slate-950' : 'bg-slate-50')}>
       <Routes>
-        {!isAuthenticated ? (
-          <>
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="*" element={<Navigate to="/auth" replace />} />
-          </>
-        ) : (
-          <>
+        {/* Public Routes */}
+        <Route element={<PublicRoute />}>
+          <Route path="/auth" element={<AuthPage />} />
+        </Route>
+
+        {/* Protected Routes with Persistent Layout */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/requests" element={<FriendRequestsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        )}
+          </Route>
+        </Route>
+
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );
@@ -58,4 +64,3 @@ export default function App() {
     </Provider>
   );
 }
-

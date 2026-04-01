@@ -1,13 +1,13 @@
-import { store } from '../store';
-import { addNotification } from '../store/slices/notificationSlice';
-import { AppNotification } from '../types';
+import { store } from "../store";
+import { addNotification } from "../store/slices/notificationSlice";
+import { AppNotification } from "../types";
 
 class NotificationService {
   private static instance: NotificationService;
-  private permission: NotificationPermission = 'default';
+  private permission: NotificationPermission = "default";
 
   private constructor() {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
+    if (typeof window !== "undefined" && "Notification" in window) {
       this.permission = Notification.permission;
     }
   }
@@ -20,21 +20,26 @@ class NotificationService {
   }
 
   public async requestPermission(): Promise<boolean> {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
+    if (typeof window === "undefined" || !("Notification" in window)) {
       return false;
     }
 
-    if (Notification.permission === 'granted') {
-      this.permission = 'granted';
+    if (Notification.permission === "granted") {
+      this.permission = "granted";
       return true;
     }
 
     const permission = await Notification.requestPermission();
     this.permission = permission;
-    return permission === 'granted';
+    return permission === "granted";
   }
 
-  public async notify(title: string, body: string, type: AppNotification['type'] = 'system', link?: string) {
+  public async notify(
+    title: string,
+    body: string,
+    type: AppNotification["type"] = "system",
+    link?: string,
+  ) {
     const notification: AppNotification = {
       id: Math.random().toString(36).substring(2, 9),
       title,
@@ -49,16 +54,20 @@ class NotificationService {
     store.dispatch(addNotification(notification));
 
     // Show browser notification if permitted
-    if (this.permission === 'granted' && typeof window !== 'undefined' && 'Notification' in window) {
+    if (
+      this.permission === "granted" &&
+      typeof window !== "undefined" &&
+      "Notification" in window
+    ) {
       // Try to use Service Worker for background notifications
-      if ('serviceWorker' in navigator) {
+      if ("serviceWorker" in navigator) {
         const registration = await navigator.serviceWorker.ready;
         if (registration) {
           registration.showNotification(title, {
             body,
-            icon: '/favicon.ico',
-            badge: '/favicon.ico',
-            data: { url: link || '/' }
+            icon: "/favicon.ico",
+            badge: "/favicon.ico",
+            data: { url: link || "/" },
           });
           return;
         }
@@ -67,7 +76,7 @@ class NotificationService {
       // Fallback to standard Notification
       const browserNotification = new Notification(title, {
         body,
-        icon: '/favicon.ico',
+        icon: "/favicon.ico",
       });
 
       browserNotification.onclick = () => {

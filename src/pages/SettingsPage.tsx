@@ -4,7 +4,6 @@ import { RootState } from '../store';
 import { toggleTheme, updateNotificationSettings } from '../store/slices/uiSlice';
 import { logout, updateUser } from '../store/slices/authSlice';
 import { addToast } from '../store/slices/toastSlice';
-import { Layout } from '../components/layout/Layout';
 import { MobileHeader } from '../components/layout/MobileHeader';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
@@ -86,7 +85,7 @@ export function SettingsPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        dispatch(updateUser({ avatar: reader.result as string }));
+        dispatch(updateUser({ profilePicture: reader.result as string }));
         dispatch(addToast({ message: 'Profile picture updated successfully!', type: 'success' }));
       };
       reader.readAsDataURL(file);
@@ -104,12 +103,12 @@ export function SettingsPage() {
 
   const handleSelectAvatar = (seed: string) => {
     const url = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
-    dispatch(updateUser({ avatar: url }));
+    dispatch(updateUser({ profilePicture: url }));
     dispatch(addToast({ message: `Avatar updated to ${seed}!`, type: 'success' }));
   };
 
   return (
-    <Layout>
+    <>
       <MobileHeader title="Settings" />
       <div className="flex-1 overflow-y-auto bg-background p-6 sm:p-8">
         <div className="max-w-2xl mx-auto">
@@ -125,7 +124,7 @@ export function SettingsPage() {
               </h3>
               <div className="flex flex-col items-center mb-8">
                 <div className="relative group">
-                  <Avatar name={user?.username || ''} src={user?.avatar} size="xl" />
+                  <Avatar name={user?.username || ''} src={user?.profilePicture} size="xl" />
                   <button 
                     onClick={handleAvatarClick}
                     className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -152,7 +151,7 @@ export function SettingsPage() {
                       onClick={() => handleSelectAvatar(seed)}
                       className={cn(
                         "relative rounded-xl overflow-hidden border-2 transition-all hover:scale-105 active:scale-95",
-                        user?.avatar?.includes(`seed=${seed}`) 
+                        user?.profilePicture?.includes(`seed=${seed}`) 
                           ? "border-primary ring-2 ring-primary/20" 
                           : "border-transparent hover:border-border"
                       )}
@@ -347,6 +346,6 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

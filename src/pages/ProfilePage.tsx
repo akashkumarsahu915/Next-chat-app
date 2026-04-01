@@ -1,7 +1,6 @@
 import React, { useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
-import { Layout } from '../components/layout/Layout';
 import { MobileHeader } from '../components/layout/MobileHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
@@ -49,7 +48,7 @@ export function ProfilePage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        dispatch(updateUser({ avatar: reader.result as string }));
+        dispatch(updateUser({ profilePicture: reader.result as string }));
         dispatch(addToast({ message: 'Profile picture updated successfully!', type: 'success' }));
       };
       reader.readAsDataURL(file);
@@ -57,13 +56,13 @@ export function ProfilePage() {
   };
 
   return (
-    <Layout>
+    <>
       <MobileHeader title="Profile" />
       <div className="flex-1 overflow-y-auto bg-background">
         <div className="h-48 bg-gradient-to-r from-primary to-purple-600 relative">
           <div className="absolute -bottom-16 left-8">
             <div className="relative group">
-              <Avatar name={user.username} src={user.avatar} size="xl" isOnline={true} className="border-4 border-background shadow-xl" />
+              <Avatar name={user.username} src={user.profilePicture} size="xl" isOnline={true} className="border-4 border-background shadow-xl" />
               <button 
                 onClick={handleAvatarClick}
                 className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity border-4 border-transparent"
@@ -186,6 +185,6 @@ export function ProfilePage() {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

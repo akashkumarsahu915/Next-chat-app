@@ -1,36 +1,59 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
-import { setUser } from '../store/slices/authSlice';
+import { setCredentials } from '../store/slices/authSlice';
 import { addToast } from '../store/slices/toastSlice';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { MessageSquare, Mail, Lock, User as UserIcon } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useLoginMutation, useRegisterMutation } from '../store/rtk/apis/login.slice';
 
 export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  
   const dispatch = useDispatch();
+  const [login, { isLoading: isLoginLoading }] = useLoginMutation();
+  const [register, { isLoading: isRegisterLoading }] = useRegisterMutation();
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock user login
-    const uid = Math.floor(100000 + Math.random() * 900000).toString();
-    dispatch(setUser({
-      id: '1',
-      uid,
-      username: 'Alex Rivera',
-      email: 'alex@example.com',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
-      isOnline: true,
-      isPrivate: false,
-      bio: 'Chatting on NexChat!',
-      status: 'Available'
-    }));
-    dispatch(addToast({ 
-      message: isLogin ? 'Successfully logged in! Welcome back.' : 'Account created! Welcome to NexChat.', 
-      type: 'success' 
-    }));
+    
+    if (isLogin) {
+      try {
+        const payload = await login({ email, password }).unwrap();
+        dispatch(setCredentials(payload));
+        dispatch(addToast({ 
+          message: 'Successfully logged in! Welcome back.', 
+          type: 'success' 
+        }));
+      } catch (err: any) {
+        dispatch(addToast({ 
+          message: err?.data?.message || 'Login failed. Please check your credentials.', 
+          type: 'error' 
+        }));
+      }
+    } else {
+      try {
+        await register({ username, email, password }).unwrap();
+        dispatch(addToast({ 
+          message: 'Account created! Please login to continue.', 
+          type: 'success' 
+        }));
+        setIsLogin(true);
+        setPassword('');
+      } catch (err: any) {
+        dispatch(addToast({ 
+          message: err?.data?.message || 'Registration failed. Email or username might be taken.', 
+          type: 'error' 
+        }));
+      }
+    }
   };
+
+  const isLoading = isLoginLoading || isRegisterLoading;
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-slate-50 p-4 dark:bg-slate-950">
@@ -54,6 +77,8 @@ export function AuthPage() {
             <Input 
               label="Username" 
               placeholder="Enter your username" 
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               icon={<UserIcon className="h-4 w-4" />} 
             />
           )}
@@ -61,17 +86,25 @@ export function AuthPage() {
             label="Email" 
             type="email" 
             placeholder="Enter your email" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             icon={<Mail className="h-4 w-4" />} 
           />
           <Input 
             label="Password" 
             type="password" 
             placeholder="Enter your password" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             icon={<Lock className="h-4 w-4" />} 
           />
           
-          <Button type="submit" className="w-full h-12 text-base mt-2">
-            {isLogin ? 'Login' : 'Sign Up'}
+          <Button 
+            type="submit" 
+            className="w-full h-12 text-base mt-2"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
           </Button>
         </form>
 

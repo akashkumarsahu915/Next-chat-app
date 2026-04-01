@@ -3,20 +3,14 @@ import { Sidebar } from '../chat/Sidebar';
 import { MobileNav } from './MobileNav';
 import { NewChatModal } from '../chat/NewChatModal';
 import { ToastContainer } from '../ui/Toast';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { setSidebarOpen } from '../../store/slices/uiSlice';
 import { cn } from '../../lib/utils';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Outlet } from 'react-router-dom';
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-export function Layout({ children }: LayoutProps) {
-  const dispatch = useDispatch();
+export function Layout() {
   const location = useLocation();
-  const { theme, isSidebarOpen, activeModal } = useSelector((state: RootState) => state.ui);
+  const { theme, activeModal } = useSelector((state: RootState) => state.ui);
   const { selectedChatId } = useSelector((state: RootState) => state.chat);
 
   const isHome = location.pathname === '/';
@@ -31,10 +25,10 @@ export function Layout({ children }: LayoutProps) {
   }, [theme]);
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground uppercase-none">
       {/* Desktop Sidebar / Mobile Home Sidebar */}
       <div className={cn(
-        "lg:flex h-full",
+        "lg:flex h-full border-r border-border",
         showSidebarOnMobile ? "flex w-full" : "hidden"
       )}>
         <Sidebar />
@@ -45,7 +39,7 @@ export function Layout({ children }: LayoutProps) {
         "flex-1 flex flex-col h-full relative overflow-hidden",
         showSidebarOnMobile ? "hidden lg:flex" : "flex pb-[72px] lg:pb-0"
       )}>
-        {children}
+        <Outlet />
       </main>
 
       {/* Modals */}

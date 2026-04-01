@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Layout } from '../components/layout/Layout';
 import { MobileHeader } from '../components/layout/MobileHeader';
 import { Tabs } from '../components/ui/Tabs';
 import { Avatar } from '../components/ui/Avatar';
@@ -36,13 +35,13 @@ export function FriendRequestsPage() {
 
     if (incomingRequests.length === 0 && sentRequests.length === 0) {
       dispatch(setIncomingRequests([
-        { id: '1', from: { id: 'u1', uid: '111111', username: 'Jake Paul', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jake', isOnline: true, isPrivate: false, email: '' }, to: currentUser, status: 'pending', timestamp: new Date().toISOString() },
-        { id: '2', from: { id: 'u2', uid: '222222', username: 'Bella Thorne', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bella', isOnline: false, isPrivate: true, email: '' }, to: currentUser, status: 'pending', timestamp: new Date().toISOString() },
+        { id: '1', from: { _id: 'u1', uid: '111111', username: 'Jake Paul', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Jake', isOnline: true, isPrivate: false, email: '' }, to: currentUser, status: 'pending', timestamp: new Date().toISOString() },
+        { id: '2', from: { _id: 'u2', uid: '222222', username: 'Bella Thorne', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bella', isOnline: false, isPrivate: true, email: '' }, to: currentUser, status: 'pending', timestamp: new Date().toISOString() },
       ]));
       dispatch(setSentRequests([
-        { id: '3', from: currentUser, to: { id: 'u3', uid: '333333', username: 'Elon Musk', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elon', isOnline: true, isPrivate: true, email: '' }, status: 'pending', timestamp: new Date().toISOString() },
-        { id: '4', from: currentUser, to: { id: 'u4', uid: '444444', username: 'Bill Gates', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bill', isOnline: false, isPrivate: false, email: '' }, status: 'accepted', timestamp: new Date().toISOString() },
-        { id: '5', from: currentUser, to: { id: 'u5', uid: '555555', username: 'Mark Zuckerberg', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mark', isOnline: true, isPrivate: true, email: '' }, status: 'rejected', timestamp: new Date().toISOString() },
+        { id: '3', from: currentUser, to: { _id: 'u3', uid: '333333', username: 'Elon Musk', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elon', isOnline: true, isPrivate: true, email: '' }, status: 'pending', timestamp: new Date().toISOString() },
+        { id: '4', from: currentUser, to: { _id: 'u4', uid: '444444', username: 'Bill Gates', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bill', isOnline: false, isPrivate: false, email: '' }, status: 'accepted', timestamp: new Date().toISOString() },
+        { id: '5', from: currentUser, to: { _id: 'u5', uid: '555555', username: 'Mark Zuckerberg', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mark', isOnline: true, isPrivate: true, email: '' }, status: 'rejected', timestamp: new Date().toISOString() },
       ]));
     }
   }, [dispatch, incomingRequests.length, sentRequests.length, currentUser]);
@@ -90,9 +89,9 @@ export function FriendRequestsPage() {
   };
 
   return (
-    <Layout>
+    <>
       <MobileHeader title="Friend Requests" />
-      <div className="flex-1 overflow-y-auto bg-background p-6 sm:p-8">
+      <div className="flex-1 overflow-y-auto bg-background p-6 sm:p-8 uppercase-none">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center space-x-3 mb-2 hidden sm:flex">
             <Shield className="h-8 w-8 text-primary" />
@@ -146,7 +145,7 @@ export function FriendRequestsPage() {
                         className="bg-card p-4 rounded-2xl shadow-sm border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-primary/30 transition-colors"
                       >
                         <div className="flex items-center space-x-4 min-w-0">
-                          <Avatar name={req.from.username} src={req.from.avatar} size="md" isOnline={req.from.isOnline} className="shrink-0" />
+                          <Avatar name={req.from.username} src={req.from.profilePicture} size="md" isOnline={req.from.isOnline} className="shrink-0" />
                           <div className="min-w-0">
                             <h3 className="font-bold text-foreground truncate">{req.from.username}</h3>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">
@@ -196,7 +195,7 @@ export function FriendRequestsPage() {
                         className="bg-card p-4 rounded-2xl shadow-sm border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:border-primary/30 transition-colors"
                       >
                         <div className="flex items-center space-x-4 min-w-0">
-                          <Avatar name={req.to.username} src={req.to.avatar} size="md" isOnline={req.to.isOnline} className="shrink-0" />
+                          <Avatar name={req.to.username} src={req.to.profilePicture} size="md" isOnline={req.to.isOnline} className="shrink-0" />
                           <div className="min-w-0">
                             <h3 className="font-bold text-foreground truncate">{req.to.username}</h3>
                             <div className="flex items-center space-x-2">
@@ -232,6 +231,6 @@ export function FriendRequestsPage() {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   );
 }

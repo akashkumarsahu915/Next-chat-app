@@ -25,17 +25,25 @@ const chatSlice = createSlice({
     setSelectedChat: (state, action: PayloadAction<string | null>) => {
       state.selectedChatId = action.payload;
     },
+    setMessages: (state, action: PayloadAction<{ chatId: string; messages: Message[] }>) => {
+      const { chatId, messages } = action.payload;
+      state.messages[chatId] = messages;
+    },
     addMessage: (state, action: PayloadAction<{ chatId: string; message: Message }>) => {
       const { chatId, message } = action.payload;
       if (!state.messages[chatId]) {
         state.messages[chatId] = [];
       }
-      state.messages[chatId].push(message);
+      // Check if message already exists (to avoid duplicates from history vs real-time)
+      const exists = state.messages[chatId].some(m => m._id === message._id);
+      if (!exists) {
+        state.messages[chatId].push(message);
+      }
     },
     deleteMessage: (state, action: PayloadAction<{ chatId: string; messageId: string }>) => {
       const { chatId, messageId } = action.payload;
       if (state.messages[chatId]) {
-        state.messages[chatId] = state.messages[chatId].filter(m => m.id !== messageId);
+        state.messages[chatId] = state.messages[chatId].filter(m => m._id !== messageId);
       }
     },
     setTyping: (state, action: PayloadAction<{ chatId: string; isTyping: boolean }>) => {
@@ -44,5 +52,5 @@ const chatSlice = createSlice({
   },
 });
 
-export const { setChats, setSelectedChat, addMessage, deleteMessage, setTyping } = chatSlice.actions;
+export const { setChats, setSelectedChat, setMessages, addMessage, deleteMessage, setTyping } = chatSlice.actions;
 export default chatSlice.reducer;
