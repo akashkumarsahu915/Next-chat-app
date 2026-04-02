@@ -8,18 +8,31 @@ interface AuthState {
   loading: boolean;
 }
 
-const storedToken = localStorage.getItem('auth_token');
-const storedUser = localStorage.getItem('auth_user');
+let initialUser = null;
+let initialToken = null;
+let initialIsAuthenticated = false;
 
-// Robust check for a valid token
-const isValidToken = storedToken && storedToken !== 'undefined' && storedToken !== 'null';
+try {
+  const storedToken = localStorage.getItem('auth_token');
+  const storedUser = localStorage.getItem('auth_user');
+  
+  // Robust check for a valid token
+  const isValidToken = storedToken && storedToken !== 'undefined' && storedToken !== 'null';
+  
+  initialUser = (storedUser && isValidToken) ? JSON.parse(storedUser) : null;
+  initialToken = isValidToken ? storedToken : null;
+  initialIsAuthenticated = !!isValidToken;
+} catch (e) {
+  console.error('[STORAGE ERROR] Failed to load initial auth state:', e);
+}
 
 const initialState: AuthState = {
-  user: (storedUser && isValidToken) ? JSON.parse(storedUser) : null,
-  token: isValidToken ? storedToken : null,
-  isAuthenticated: !!isValidToken,
+  user: initialUser,
+  token: initialToken,
+  isAuthenticated: initialIsAuthenticated,
   loading: false,
 };
+
 
 const authSlice = createSlice({
   name: 'auth',
@@ -32,12 +45,18 @@ const authSlice = createSlice({
       state.isAuthenticated = !!token;
       
       if (token) {
-        localStorage.setItem('auth_token', token);
-        if (user) {
-          localStorage.setItem('auth_user', JSON.stringify(user));
+        try {
+          localStorage.setItem('auth_token', token);
+          if (user) {
+            localStorage.setItem('auth_user', JSON.stringify(user));
+          }
+        } catch (storageError) {
+          console.error('[STORAGE ERROR] Failed to save credentials to localStorage:', storageError);
+          // Non-blocking: The user is still logged in to the Redux state
         }
       }
     },
+
     setUser: (state, action: PayloadAction<User | null>) => {
       state.user = action.payload;
       state.isAuthenticated = !!action.payload;

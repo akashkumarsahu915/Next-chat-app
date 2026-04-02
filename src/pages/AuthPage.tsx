@@ -24,14 +24,27 @@ export function AuthPage() {
     if (isLogin) {
       try {
         const payload = await login({ email, password }).unwrap();
+        console.log('[DEBUG] Login Success Payload:', payload);
+        
         dispatch(setCredentials(payload));
         dispatch(addToast({ 
           message: 'Successfully logged in! Welcome back.', 
           type: 'success' 
         }));
       } catch (err: any) {
-        console.error('Login error:', err);
-        const errorMessage = err?.data?.message || err?.data?.error || err?.error || 'Login failed. Please check your credentials.';
+        console.error('[DEBUG] Login implementation error:', err);
+        
+        // Differentiate between API error and Code error
+        const isApiError = err?.status !== undefined || err?.data !== undefined;
+        let errorMessage = 'An unexpected application error occurred.';
+        
+        if (isApiError) {
+          errorMessage = err?.data?.message || err?.data?.error || err?.error || 'Login failed. Please check your credentials.';
+        } else {
+          // This is likely a JS crash during dispatch or storage
+          errorMessage = `Local Error: ${err?.message || 'Check browser console'}`;
+        }
+
         dispatch(addToast({ 
           message: errorMessage, 
           type: 'error' 
@@ -39,7 +52,9 @@ export function AuthPage() {
       }
     } else {
       try {
-        await register({ username, email, password }).unwrap();
+        const payload = await register({ username, email, password }).unwrap();
+        console.log('[DEBUG] Register Success Payload:', payload);
+
         dispatch(addToast({ 
           message: 'Account created! Please login to continue.', 
           type: 'success' 
@@ -47,14 +62,24 @@ export function AuthPage() {
         setIsLogin(true);
         setPassword('');
       } catch (err: any) {
-        console.error('Registration error:', err);
-        const errorMessage = err?.data?.message || err?.data?.error || err?.error || 'Registration failed. Email or username might be taken.';
+        console.error('[DEBUG] Registration implementation error:', err);
+        
+        const isApiError = err?.status !== undefined || err?.data !== undefined;
+        let errorMessage = 'An unexpected registration error occurred.';
+
+        if (isApiError) {
+          errorMessage = err?.data?.message || err?.data?.error || err?.error || 'Registration failed. Email or username might be taken.';
+        } else {
+          errorMessage = `Local Error: ${err?.message || 'Check browser console'}`;
+        }
+
         dispatch(addToast({ 
           message: errorMessage, 
           type: 'error' 
         }));
       }
     }
+
 
   };
 
