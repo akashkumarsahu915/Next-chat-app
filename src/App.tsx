@@ -18,6 +18,7 @@ import { notificationService } from './lib/notificationService';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { PublicRoute } from './components/auth/PublicRoute';
 import { Layout } from './components/layout/Layout';
+import { ToastContainer } from './components/ui/Toast';
 
 function AppRoutes() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -51,9 +52,11 @@ function AppRoutes() {
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ToastContainer />
     </div>
   );
 }
+
 
 export default function App() {
   return (

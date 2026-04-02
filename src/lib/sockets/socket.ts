@@ -1,10 +1,13 @@
 import { io, Socket } from "socket.io-client";
 
-const URL = "http://localhost:8080";
+const socketUrl = import.meta.env.VITE_BASE_URL || "http://localhost:5000";
 
-export const socket: Socket = io(URL, {
-    query: {
-        userId: "test_user_123", // 🔥 temporary
+export const createSocketConnection = (token: string): Socket => {
+  return io(socketUrl, {
+    auth: {
+      token,
     },
-    transports: ["websocket"], // 🔥 avoids polling issues
-}); 
+    transports: ["websocket"],
+  });
+};
+ 

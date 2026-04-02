@@ -11,6 +11,13 @@ import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { NotificationDropdown } from './NotificationDropdown';
 import { useGetChatsQuery } from '../../store/rtk/apis/chat.slice';
+import { useSocket } from '../../context/SocketContext';
+import { setOnlineUsers, updateChatMetadata, updateChat, setChats } from '../../store/slices/chatSlice';
+import { useEffect } from 'react';
+import { Chat, Message } from '../../types';
+
+
+
 
 export function Sidebar() {
   const dispatch = useDispatch();
@@ -22,8 +29,57 @@ export function Sidebar() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data: chatData, isLoading } = useGetChatsQuery();
+  const { socket } = useSocket();
+  const { chats } = useSelector((state: RootState) => state.chat);
 
-  const chats = chatData?.chats || [];
+  useEffect(() => {
+    console.log('[DEBUG] Sidebar User ID:', user?._id);
+  }, [user?._id]);
+
+  // Sync API data to Redux for real-time updates
+
+  useEffect(() => {
+    if (chatData?.chats) {
+      console.log('[DEBUG] Syncing chatData to Redux. Total chats:', chatData.chats.length);
+      console.table(chatData.chats.map(c => ({
+        id: c._id,
+        unreadCounts: JSON.stringify(c.unreadCounts),
+        lastMessage: c.lastMessage?.content
+      })));
+      dispatch(setChats(chatData.chats));
+    }
+  }, [chatData, dispatch]);
+
+
+  // Local Sidebar logic (filtering, searching, selections)
+
+
+  // Socket: Join all rooms to ensure we receive updates for all chats (even background ones)
+  useEffect(() => {
+    if (socket && chats.length > 0) {
+      const joinAll = () => {
+        console.log(`[DEBUG] Attempting bulk room join for ${chats.length} chats...`);
+        chats.forEach(chat => {
+          socket.emit('join_chat', chat._id);
+        });
+        console.log(`[Socket] Bulk joined ${chats.length} rooms:`, chats.map(c => c._id));
+      };
+
+      joinAll();
+      socket.on('connect', () => {
+        console.log('[DEBUG] Connection established in Sidebar, re-joining rooms...');
+        joinAll();
+      });
+
+      return () => {
+        socket.off('connect', joinAll);
+        console.log('[DEBUG] Cleaning up Sidebar socket listeners...');
+      };
+    }
+  }, [socket, chats.map(c => c._id).join(',')]);
+
+
+
 
   const filteredChats = chats.filter((chat) => {
     // Filter out chats with blocked users
@@ -131,9 +187,20 @@ export function Sidebar() {
             const otherParticipant = chat.participants.find(p => p._id !== user?._id);
             const chatName = chat.isGroup ? chat.groupName : otherParticipant?.username;
             const chatPic = chat.isGroup ? undefined : otherParticipant?.profilePicture;
-            // unreadCount for the current user
-            const unreadCount = user?._id ? chat.unreadCounts?.[user._id] || 0 : 0;
+            // Unread count: Check user-specific map first, then legacy fallback
+            const myId = user?._id ? String(user._id) : '';
+            const unreadCount = myId && chat.unreadCounts 
+              ? (Object.entries(chat.unreadCounts).find(([id]) => String(id) === myId)?.[1] || 0)
+              : (chat.unreadCount || 0);
+            
             const lastMsg = chat.lastMessage;
+            
+            if (unreadCount > 0) {
+              console.log(`[DEBUG] RENDERING BADGE FOR ${myId}: ${unreadCount}`);
+            }
+
+
+
 
             return (
               <button
@@ -157,10 +224,18 @@ export function Sidebar() {
                     )}>
                       {chatName}
                     </span>
-                    <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
-                      {lastMsg ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                       <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                        {lastMsg ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
+                      {unreadCount > 0 && (
+                        <span className="flex h-4.5 w-4.5 min-w-[18px] items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-md ring-2 ring-background">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
+
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-muted-foreground truncate flex-1 leading-relaxed">
                       {lastMsg?.content || 'No messages yet'}
@@ -175,13 +250,9 @@ export function Sidebar() {
                     )}
                   </div>
                 </div>
-                {unreadCount > 0 && (
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground shadow-lg shadow-primary/20">
-                    {unreadCount}
-                  </span>
-                )}
               </button>
             );
+
           })
         )}
       </div>

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
-import { addMessage, setMessages } from '../store/slices/chatSlice';
+import { addMessage, setMessages, setChats } from '../store/slices/chatSlice';
+
 import { MobileHeader } from '../components/layout/MobileHeader';
 import { ChatHeader } from '../components/chat/ChatHeader';
 import { ChatBubble } from '../components/chat/ChatBubble';
@@ -13,6 +14,9 @@ import { ChevronDown } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { motion, AnimatePresence } from 'motion/react';
 import { useGetChatsQuery, useGetMessagesQuery, useSendMessageMutation, useMarkChatAsReadMutation } from '../store/rtk/apis/chat.slice';
+import { useSocket } from '../context/SocketContext';
+import { markAsReadSuccess } from '../store/slices/chatSlice';
+
 
 export function Dashboard() {
   const dispatch = useDispatch();
@@ -23,9 +27,91 @@ export function Dashboard() {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const { data: chatData } = useGetChatsQuery();
+  const { chats } = useSelector((state: RootState) => state.chat);
   const [sendMessage] = useSendMessageMutation();
   const [markAsRead] = useMarkChatAsReadMutation();
   const markAsReadRef = useRef<string | null>(null);
+  const { socket } = useSocket();
+
+  // Sync API data to Redux for real-time updates
+  useEffect(() => {
+    if (chatData?.chats) {
+      dispatch(setChats(chatData.chats));
+    }
+  }, [chatData, dispatch]);
+
+  // Socket: Join/Leave Chat Room
+
+  useEffect(() => {
+    if (socket && selectedChatId) {
+      const joinRoom = () => {
+        socket.emit('join_chat', selectedChatId);
+        console.log(`Joined chat: ${selectedChatId}`);
+      };
+
+      joinRoom();
+      socket.on('connect', joinRoom);
+
+      return () => {
+        socket.off('connect', joinRoom);
+        console.log(`Unsubscribing from focused join events for: ${selectedChatId}`);
+      };
+    }
+  }, [socket, selectedChatId]);
+
+
+  // Socket: Listen for real-time events
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (newMessage: Message) => {
+      console.log('[DEBUG] Received new_message event in Dashboard:', newMessage);
+      
+      // Skip if it's our own message (handled optimistically or via REST response)
+      const senderId = typeof newMessage.senderId === 'string' ? newMessage.senderId : newMessage.senderId._id;
+      const isOurMessage = senderId === user?._id;
+      
+      console.log('[DEBUG] Message Filter Result:', { 
+        senderId, 
+        currentUserId: user?._id, 
+        isOurMessage, 
+        chatId: newMessage.chatId, 
+        selectedChatId 
+      });
+
+      if (isOurMessage) {
+        console.log('[DEBUG] Dropping message (it is our own)');
+        return;
+      }
+
+      // Add message to Redux store
+      console.log('[DEBUG] Dispatching addMessage to Redux');
+      dispatch(addMessage({ chatId: newMessage.chatId, message: newMessage }));
+      
+      // If it's the current chat, mark as read
+      if (newMessage.chatId === selectedChatId) {
+        console.log('[DEBUG] Current chat active, triggering markAsRead');
+        markAsRead(selectedChatId);
+      }
+    };
+
+
+
+    const handleMessagesRead = ({ chatId, userId }: { chatId: string, userId: string }) => {
+      if (userId === user?._id) {
+        dispatch(markAsReadSuccess({ chatId, userId }));
+      }
+    };
+
+    socket.on('new_message', handleNewMessage);
+    socket.on('messages_read', handleMessagesRead);
+
+    return () => {
+      socket.off('new_message', handleNewMessage);
+      socket.off('messages_read', handleMessagesRead);
+    };
+  }, [socket, selectedChatId, user?._id, dispatch, markAsRead]);
+
 
   // Fetch message history when selectedChatId changes
   const { data: historyData, isLoading: isHistoryLoading } = useGetMessagesQuery(
@@ -33,10 +119,10 @@ export function Dashboard() {
     { skip: !selectedChatId }
   );
 
-  const chats = chatData?.chats || [];
-  const selectedChat = chats.find(c => c._id === selectedChatId);
+  const selectedChat = (chats || []).find(c => c._id === selectedChatId);
   const currentMessages = selectedChatId ? messages[selectedChatId] || [] : [];
   const isOtherTyping = selectedChatId ? isTyping[selectedChatId] : false;
+
 
   const scrollToBottom = () => {
     if (scrollRef.current) {

@@ -2,8 +2,8 @@ import React from 'react';
 import { Sidebar } from '../chat/Sidebar';
 import { MobileNav } from './MobileNav';
 import { NewChatModal } from '../chat/NewChatModal';
-import { ToastContainer } from '../ui/Toast';
 import { useSelector } from 'react-redux';
+
 import { RootState } from '../../store';
 import { cn } from '../../lib/utils';
 import { useLocation, Outlet } from 'react-router-dom';
@@ -46,7 +46,7 @@ export function Layout() {
       {activeModal === 'new-chat' && <NewChatModal />}
       
       <MobileNav />
-      <ToastContainer />
     </div>
   );
 }
+

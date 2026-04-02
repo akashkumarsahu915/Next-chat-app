@@ -28,7 +28,8 @@ export interface Message {
   createdAt: string;
   updatedAt: string;
   type: 'text' | 'image' | 'file';
-  status: 'sent' | 'delivered' | 'read';
+  status: 'sending' | 'sent' | 'delivered' | 'read';
+
   readBy?: string[];
 }
 

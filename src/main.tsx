@@ -16,10 +16,15 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+import { SocketProvider } from './context/SocketContext.tsx';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Provider store={store}>
-      <App />
+      <SocketProvider>
+        <App />
+      </SocketProvider>
     </Provider>
   </StrictMode>,
 );
+

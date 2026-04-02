@@ -30,8 +30,10 @@ export function AuthPage() {
           type: 'success' 
         }));
       } catch (err: any) {
+        console.error('Login error:', err);
+        const errorMessage = err?.data?.message || err?.data?.error || err?.error || 'Login failed. Please check your credentials.';
         dispatch(addToast({ 
-          message: err?.data?.message || 'Login failed. Please check your credentials.', 
+          message: errorMessage, 
           type: 'error' 
         }));
       }
@@ -45,12 +47,15 @@ export function AuthPage() {
         setIsLogin(true);
         setPassword('');
       } catch (err: any) {
+        console.error('Registration error:', err);
+        const errorMessage = err?.data?.message || err?.data?.error || err?.error || 'Registration failed. Email or username might be taken.';
         dispatch(addToast({ 
-          message: err?.data?.message || 'Registration failed. Email or username might be taken.', 
+          message: errorMessage, 
           type: 'error' 
         }));
       }
     }
+
   };
 
   const isLoading = isLoginLoading || isRegisterLoading;
