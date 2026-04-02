@@ -39,10 +39,17 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     setCredentials: (state, action: PayloadAction<LoginResponse>) => {
+      // Defensive Check: Prevent crash if backend sends empty/null body
+      if (!action.payload) {
+        console.error('[AUTH ERROR] Login payload is null or undefined. Check backend response body.');
+        return;
+      }
+
       const { user, token } = action.payload;
       state.user = user || null;
       state.token = token || null;
       state.isAuthenticated = !!token;
+
       
       if (token) {
         try {
