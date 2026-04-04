@@ -5,6 +5,7 @@ import friendsReducer from './slices/friendsSlice';
 import uiReducer from './slices/uiSlice';
 import toastReducer from './slices/toastSlice';
 import notificationReducer from './slices/notificationSlice';
+import callReducer from './slices/callSlice';
 import apiSlice from './rtk/apislice';
 
 export const store = configureStore({
@@ -16,6 +17,7 @@ export const store = configureStore({
     ui: uiReducer,
     toast: toastReducer,
     notifications: notificationReducer,
+    call: callReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(apiSlice.middleware),

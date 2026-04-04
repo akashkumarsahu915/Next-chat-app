@@ -12,13 +12,9 @@ import { cn } from '../../lib/utils';
 import { User, Chat } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 
-const MOCK_USERS: User[] = [
-  { _id: '2', uid: '234567', username: 'Sarah Wilson', email: 'sarah@example.com', isOnline: true, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah' },
-  { _id: '3', uid: '345678', username: 'John Doe', email: 'john@example.com', isOnline: false, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John' },
-  { _id: '4', uid: '456789', username: 'Alex Rivera', email: 'alex@example.com', isOnline: true, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex' },
-  { _id: '5', uid: '567890', username: 'Emma Thompson', email: 'emma@example.com', isOnline: true, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma' },
-  { _id: '6', uid: '678901', username: 'Michael Chen', email: 'michael@example.com', isOnline: false, isPrivate: false, profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Michael' },
-];
+import { useGetFriendListQuery } from '../../store/slices/friends.slice';
+import { useAccessChatMutation } from '../../store/slices/chat.slice';
+import { Loader2 } from 'lucide-react';
 
 export function NewChatModal() {
   const dispatch = useDispatch();
@@ -29,7 +25,12 @@ export function NewChatModal() {
   const [isGroup, setIsGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
 
-  const filteredUsers = MOCK_USERS.filter(u => 
+  const { data: friendData, isLoading: isLoadingFriends, isError: friendError } = useGetFriendListQuery();
+  const [accessChat, { isLoading: isCreatingChat }] = useAccessChatMutation();
+
+  const friends = friendData?.friends || [];
+
+  const filteredUsers = friends.filter(u => 
     u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -46,25 +47,38 @@ export function NewChatModal() {
     }
   };
 
-  const handleCreateChat = () => {
+  const handleCreateChat = async () => {
     if (selectedUsers.length === 0) return;
     if (isGroup && !groupName.trim()) return;
 
-    const newChat: Chat = {
-      id: `chat-${Date.now()}`,
-      name: isGroup ? groupName : undefined,
-      isGroup,
-      participants: selectedUsers,
-      unreadCount: 0,
-      lastMessage: undefined
-    };
+    if (!isGroup) {
+      try {
+        const chat = await accessChat({ userId: selectedUsers[0]._id }).unwrap();
+        dispatch(setSelectedChat(chat._id));
+        dispatch(setActiveModal(null));
+        navigate('/');
+      } catch (error: any) {
+        console.error('Failed to access chat:', error);
+      }
+    } else {
+      // Group chat logic to be implemented when API is available
+      const newChat: Chat = {
+        _id: `chat-${Date.now()}`,
+        name: groupName,
+        isGroup: true,
+        participants: selectedUsers,
+        unreadCount: 0,
+        lastMessage: undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
-    dispatch(setChats([newChat, ...chats]));
-    dispatch(setSelectedChat(newChat.id));
-    dispatch(setActiveModal(null));
-    navigate('/');
+      dispatch(setChats([newChat, ...chats]));
+      dispatch(setSelectedChat(newChat._id));
+      dispatch(setActiveModal(null));
+      navigate('/');
+    }
   };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <motion.div 
@@ -130,32 +144,47 @@ export function NewChatModal() {
           />
 
           <div className="max-h-60 overflow-y-auto space-y-1 pr-1">
-            {filteredUsers.map((user) => {
-              const isSelected = selectedUsers.find(u => u._id === user._id);
-              return (
-                <button
-                  key={user._id}
-                  onClick={() => toggleUser(user)}
-                  className={cn(
-                    "w-full flex items-center space-x-3 p-3 rounded-xl transition-all hover:bg-muted",
-                    isSelected && "bg-primary/10"
-                  )}
-                >
-                  <div className="relative">
-                    <Avatar name={user.username} src={user.profilePicture} isOnline={user.isOnline} />
-                    {isSelected && (
-                      <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5 border-2 border-card">
-                        <Check className="h-3 w-3" />
-                      </div>
+            {isLoadingFriends ? (
+              <div className="flex flex-col items-center justify-center py-10 space-y-2">
+                <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                <p className="text-xs text-muted-foreground">Loading friends...</p>
+              </div>
+            ) : friendError ? (
+              <div className="text-center py-10">
+                <p className="text-xs text-red-500">Failed to load friends</p>
+              </div>
+            ) : filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => {
+                const isSelected = selectedUsers.find(u => u._id === user._id);
+                return (
+                  <button
+                    key={user._id}
+                    onClick={() => toggleUser(user)}
+                    className={cn(
+                      "w-full flex items-center space-x-3 p-3 rounded-xl transition-all hover:bg-muted",
+                      isSelected && "bg-primary/10"
                     )}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-medium text-foreground">{user.username}</p>
-                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                  </div>
-                </button>
-              );
-            })}
+                  >
+                    <div className="relative">
+                      <Avatar name={user.username} src={user.profilePicture} isOnline={user.isOnline} />
+                      {isSelected && (
+                        <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full p-0.5 border-2 border-card">
+                          <Check className="h-3 w-3" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-medium text-foreground">{user.username}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-xs text-muted-foreground">No friends found</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -165,10 +194,10 @@ export function NewChatModal() {
           </p>
           <Button 
             onClick={handleCreateChat} 
-            disabled={selectedUsers.length === 0 || (isGroup && !groupName.trim())}
-            className="rounded-2xl px-6"
+            disabled={selectedUsers.length === 0 || (isGroup && !groupName.trim()) || isCreatingChat}
+            className="rounded-2xl px-6 min-w-[120px]"
           >
-            Create Chat
+            {isCreatingChat ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Chat'}
           </Button>
         </div>
       </motion.div>

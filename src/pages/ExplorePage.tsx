@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MobileHeader } from '../components/layout/MobileHeader';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Avatar } from '../components/ui/Avatar';
-import { Search, UserPlus, Filter, X, UserCheck, Info } from 'lucide-react';
+import { Search, UserPlus, Filter, X, UserCheck, Info, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDispatch, useSelector } from 'react-redux';
 import { addToast } from '../store/slices/toastSlice';
@@ -12,29 +12,49 @@ import { RootState } from '../store';
 import { cn } from '../lib/utils';
 import { notificationService } from '../lib/notificationService';
 import { User } from '../types';
+import { useSearchUsersQuery, useLocateUsersQuery, useSendFriendRequestMutation } from '../store/slices/friends.slice';
 
 export function ExplorePage() {
   const dispatch = useDispatch();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { friends, sentRequests, blockedUserIds } = useSelector((state: RootState) => state.friends);
   const { notificationSettings } = useSelector((state: RootState) => state.ui);
+  
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedInterest, setSelectedInterest] = useState<string | null>(null);
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
+  const [requestingUserId, setRequestingUserId] = useState<string | null>(null);
 
-  const mockUsers: User[] = [
-    { _id: '1', uid: '123456', username: 'Emma Watson', bio: 'Actress and activist', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma', interests: ['Acting', 'Activism', 'Books'], isOnline: false, isPrivate: false, email: 'emma@example.com' },
-    { _id: '2', uid: '234567', username: 'Liam Neeson', bio: 'I have a very particular set of skills', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Liam', interests: ['Acting', 'Action', 'Movies'], isOnline: true, isPrivate: false, email: 'liam@example.com' },
-    { _id: '3', uid: '345678', username: 'Sophia Chen', bio: 'Digital artist & coffee lover', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophia', interests: ['Art', 'Coffee', 'Design'], isOnline: false, isPrivate: true, email: 'sophia@example.com' },
-    { _id: '4', uid: '456789', username: 'Marcus Aurelius', bio: 'Stoic philosopher', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Marcus', interests: ['Philosophy', 'History', 'Stoicism'], isOnline: true, isPrivate: false, email: 'marcus@example.com' },
-    { _id: '5', uid: '567890', username: 'Olivia Wilde', bio: 'Director & dreamer', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Olivia', interests: ['Directing', 'Movies', 'Fashion'], isOnline: false, isPrivate: false, email: 'olivia@example.com' },
-    { _id: '6', uid: '678901', username: 'David Goggins', bio: 'Stay hard!', profilePicture: 'https://api.dicebear.com/7.x/avataaars/svg?seed=David', interests: ['Fitness', 'Motivation', 'Running'], isOnline: true, isPrivate: false, email: 'david@example.com' },
-  ];
+  const [sendRequest, { isLoading: isSendingRequest }] = useSendFriendRequestMutation();
 
-  const allInterests = Array.from(new Set(mockUsers.flatMap(u => u.interests || []))).sort();
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const filteredUsers = mockUsers.filter(user => {
+  // Fetch users based on search or discovery
+  const { 
+    data: searchResults, 
+    isFetching: isSearching, 
+    isError: searchError 
+  } = useSearchUsersQuery(debouncedSearch, { skip: !debouncedSearch });
+
+  const { 
+    data: discoveryUsers, 
+    isFetching: isDiscovering, 
+    isError: discoveryError 
+  } = useLocateUsersQuery(debouncedSearch ? '' : 'balasore', { skip: !!debouncedSearch });
+
+  const users = debouncedSearch ? searchResults : discoveryUsers;
+  const isLoading = isSearching || isDiscovering;
+  const isError = searchError || discoveryError;
+
+  const filteredUsers = (users || []).filter(user => {
     // Filter out current user
     if (currentUser && user._id === currentUser._id) return false;
 
@@ -43,39 +63,39 @@ export function ExplorePage() {
 
     // Filter out existing friends and pending requests
     const isFriend = friends.some(f => f._id === user._id);
-    const isPending = sentRequests.some(r => r.to._id === user._id);
+    const isPending = sentRequests.some(r => {
+      const toId = typeof r.to === 'string' ? r.to : r.to?._id;
+      return toId === user._id;
+    });
     
     if (isFriend || isPending) return false;
 
-    const matchesSearch = 
-      user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.interests || []).some(interest => interest.toLowerCase().includes(searchQuery.toLowerCase()));
-    
     const matchesInterest = !selectedInterest || (user.interests || []).includes(selectedInterest);
     
-    return matchesSearch && matchesInterest;
+    return matchesInterest;
   });
 
-  const handleAddFriend = (user: User) => {
+  const allInterests = Array.from(new Set(filteredUsers.flatMap(u => u.interests || []))).sort();
+
+  const handleAddFriend = async (user: User) => {
     if (!currentUser) return;
 
-    const newRequest = {
-      id: Math.random().toString(36).substring(2, 9),
-      from: currentUser,
-      to: user,
-      status: 'pending' as const,
-      timestamp: new Date().toISOString(),
-    };
-    
-    dispatch(addSentRequest(newRequest));
-    dispatch(addToast({ message: `Friend request sent to ${user.username}`, type: 'success' }));
-    
-    if (notificationSettings.pushEnabled && notificationSettings.friendRequests) {
-      notificationService.notify(
-        'Friend Request Sent',
-        `You sent a friend request to ${user.username}`,
-        'friend_request'
-      );
+    try {
+      setRequestingUserId(user._id);
+      await sendRequest({ receiverId: user._id }).unwrap();
+      dispatch(addToast({ message: `Friend request sent to ${user.username}`, type: 'success' }));
+      
+      if (notificationSettings.pushEnabled && notificationSettings.friendRequests) {
+        notificationService.notify(
+          'Friend Request Sent',
+          `You sent a friend request to ${user.username}`,
+          'friend_request'
+        );
+      }
+    } catch (error: any) {
+      dispatch(addToast({ message: error?.data?.message || 'Failed to send friend request', type: 'error' }));
+    } finally {
+      setRequestingUserId(null);
     }
   };
 
@@ -154,102 +174,153 @@ export function ExplorePage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-20">
-            {filteredUsers.map((user, i) => (
-              <motion.div
-                key={user._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="bg-card p-5 rounded-[2rem] shadow-sm border border-border flex flex-col hover:shadow-md transition-all relative group h-[220px]"
-                onMouseEnter={() => setHoveredUserId(user._id)}
-                onMouseLeave={() => setHoveredUserId(null)}
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div 
+                key="loading"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col items-center justify-center py-20 space-y-4"
               >
-                <div className="flex items-start space-x-4 mb-3">
-                  <Avatar name={user.username} src={user.profilePicture} size="lg" className="shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-foreground truncate text-base">{user.username}</h3>
-                    <p className="text-xs text-muted-foreground line-clamp-2 h-8 mb-2 leading-relaxed">
-                      {user.bio}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {(user.interests || []).slice(0, 2).map(interest => (
-                        <span key={interest} className="text-[9px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-semibold uppercase tracking-wider">
-                          {interest}
-                        </span>
-                      ))}
-                      {(user.interests || []).length > 2 && (
-                        <span className="text-[9px] text-muted-foreground font-medium">+{(user.interests || []).length - 2}</span>
-                      )}
-                    </div>
-                  </div>
+                <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                <p className="text-muted-foreground animate-pulse font-medium">
+                  {debouncedSearch ? `Searching for "${debouncedSearch}"...` : 'Finding people near you...'}
+                </p>
+              </motion.div>
+            ) : isError ? (
+              <motion.div 
+                key="error"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center py-16 bg-red-500/5 rounded-[2rem] border border-dashed border-red-500/20"
+              >
+                <div className="bg-red-500/10 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <X className="h-8 w-8 text-red-500" />
                 </div>
-                
-                <div className="mt-auto pt-4 border-t border-border/50 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="flex -space-x-1.5 mr-2">
-                      {[1, 2].map((n) => (
-                        <div key={n} className="w-5 h-5 rounded-full border-2 border-card bg-muted overflow-hidden">
-                          <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=friend${n + i}`} alt="" className="w-full h-full" />
-                        </div>
-                      ))}
-                    </div>
-                    <span className="text-[10px] text-muted-foreground font-medium">Mutuals</span>
-                  </div>
-                  <Button 
-                    variant="primary" 
-                    size="sm" 
-                    className="rounded-xl px-4 h-8 text-xs font-bold shadow-lg shadow-primary/10"
-                    onClick={() => handleAddFriend(user)}
+                <h3 className="text-lg font-bold text-foreground mb-2">Something went wrong</h3>
+                <p className="text-muted-foreground mb-6 max-w-xs mx-auto">We couldn't fetch the user list. Please check your connection and try again.</p>
+                <Button variant="outline" onClick={() => window.location.reload()} className="rounded-xl px-8">
+                  Retry
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="results"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-20"
+              >
+                {filteredUsers.map((user, i) => (
+                  <motion.div
+                    key={user._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="bg-card p-5 rounded-[2rem] shadow-sm border border-border flex flex-col hover:shadow-md transition-all relative group h-[220px]"
+                    onMouseEnter={() => setHoveredUserId(user._id)}
+                    onMouseLeave={() => setHoveredUserId(null)}
                   >
-                    <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-                    Connect
-                  </Button>
-                </div>
-
-                {/* Profile Preview Popover */}
-                <AnimatePresence>
-                  {hoveredUserId === user._id && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                      className="absolute bottom-full left-0 mb-2 w-64 bg-card border border-border rounded-2xl shadow-2xl z-50 p-4 pointer-events-none"
-                    >
-                      <div className="flex items-center space-x-3 mb-3">
-                        <Avatar name={user.username} src={user.profilePicture} size="md" />
-                        <div>
-                          <h4 className="font-bold text-sm">{user.username}</h4>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Profile Preview</p>
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-                        {user.bio}
-                      </p>
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Interests</p>
+                    <div className="flex items-start space-x-4 mb-3">
+                      <Avatar name={user.username} src={user.profilePicture} size="lg" className="shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-bold text-foreground truncate text-base">{user.username}</h3>
+                        <p className="text-xs text-muted-foreground line-clamp-2 h-8 mb-2 leading-relaxed">
+                          {user.bio || 'No bio available'}
+                        </p>
                         <div className="flex flex-wrap gap-1">
-                          {(user.interests || []).map(interest => (
-                            <span key={interest} className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                          {(user.interests || []).slice(0, 2).map(interest => (
+                            <span key={interest} className="text-[9px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground font-semibold uppercase tracking-wider">
                               {interest}
                             </span>
                           ))}
+                          {(user.interests || []).length > 2 && (
+                            <span className="text-[9px] text-muted-foreground font-medium">+{(user.interests || []).length - 2}</span>
+                          )}
+                          {(user.location && user.location.length > 0) && (
+                            <span className="text-[9px] bg-primary/5 text-primary px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">
+                              {user.location[0]}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-                        <div className="flex items-center space-x-1">
-                          <Info className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-[10px] text-muted-foreground">Mutual Friends: 0</span>
+                    </div>
+                    
+                    <div className="mt-auto pt-4 border-t border-border/50 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="flex -space-x-1.5 mr-2">
+                          {[1, 2].map((n) => (
+                            <div key={n} className="w-5 h-5 rounded-full border-2 border-card bg-muted overflow-hidden">
+                              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=friend${n + i}`} alt="" className="w-full h-full" />
+                            </div>
+                          ))}
                         </div>
+                        <span className="text-[10px] text-muted-foreground font-medium">Connect</span>
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            ))}
-          </div>
+                      <Button 
+                        variant="primary" 
+                        size="sm" 
+                        className="rounded-xl px-4 h-8 text-xs font-bold shadow-lg shadow-primary/10"
+                        onClick={() => handleAddFriend(user)}
+                        disabled={isSendingRequest && requestingUserId === user._id}
+                      >
+                        {isSendingRequest && requestingUserId === user._id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                            Connect
+                          </>
+                        )}
+                      </Button>
+                    </div>
 
-          {filteredUsers.length === 0 && (
+                    {/* Profile Preview Popover */}
+                    <AnimatePresence>
+                      {hoveredUserId === user._id && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                          className="absolute bottom-full left-0 mb-2 w-64 bg-card border border-border rounded-2xl shadow-2xl z-50 p-4 pointer-events-none"
+                        >
+                          <div className="flex items-center space-x-3 mb-3">
+                            <Avatar name={user.username} src={user.profilePicture} size="md" />
+                            <div>
+                              <h4 className="font-bold text-sm">{user.username}</h4>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold">Profile Preview</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+                            {user.bio}
+                          </p>
+                          <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Interests & Location</p>
+                            <div className="flex flex-wrap gap-1">
+                              {(user.interests || []).map(interest => (
+                                <span key={interest} className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                  {interest}
+                                </span>
+                              ))}
+                              {user.location?.map(loc => (
+                                <span key={loc} className="text-[10px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full">
+                                  {loc}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!isLoading && !isError && filteredUsers.length === 0 && (
             <div className="text-center py-20">
               <Search className="h-12 w-12 text-muted mx-auto mb-4" />
               <p className="text-muted-foreground">No users found matching your criteria</p>

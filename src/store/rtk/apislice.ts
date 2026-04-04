@@ -15,7 +15,7 @@ export const apiSlice = createApi({
             return headers;
         },
     }),
-    tagTypes: ["Chats", "Messages"],
+    tagTypes: ["Chats", "Messages", "FriendRequest", "Friends"],
     endpoints: () => ({}),
 });
 

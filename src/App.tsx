@@ -19,6 +19,8 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { PublicRoute } from './components/auth/PublicRoute';
 import { Layout } from './components/layout/Layout';
 import { ToastContainer } from './components/ui/Toast';
+import { IncomingCallModal } from './components/video/IncomingCallModal';
+import { CallOverlay } from './components/video/CallOverlay';
 
 function AppRoutes() {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
@@ -53,6 +55,8 @@ function AppRoutes() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <ToastContainer />
+      <IncomingCallModal />
+      <CallOverlay />
     </div>
   );
 }

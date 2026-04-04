@@ -16,6 +16,8 @@ interface ChatHeaderProps {
   chat: Chat;
 }
 
+import { initiateCall } from '../../store/slices/callSlice';
+
 export function ChatHeader({ chat }: ChatHeaderProps) {
   const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
@@ -31,6 +33,14 @@ export function ChatHeader({ chat }: ChatHeaderProps) {
   const chatName = chat.isGroup ? chat.groupName : otherParticipant?.username;
   const chatPic = chat.isGroup ? undefined : otherParticipant?.profilePicture;
   const isOnline = chat.isGroup ? false : otherParticipant?.isOnline;
+
+  const handleStartCall = () => {
+    if (otherParticipant && !chat.isGroup) {
+      dispatch(initiateCall({ receiver: otherParticipant, chatId: chat._id }));
+    } else {
+      dispatch(addToast({ message: 'Video calling is only available for 1-on-1 chats', type: 'info' }));
+    }
+  };
 
   const handleBlock = () => {
     if (otherParticipant) {
@@ -93,7 +103,12 @@ export function ChatHeader({ chat }: ChatHeaderProps) {
         <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground">
           <Phone className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="rounded-full text-muted-foreground hover:text-primary transition-colors"
+          onClick={handleStartCall}
+        >
           <Video className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="icon" className="rounded-full text-muted-foreground">

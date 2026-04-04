@@ -6,3 +6,4 @@ coverage/
 *.log
 .env*
 !.env.example
+SOCKET_INTEGRATION_AUDIT.md/

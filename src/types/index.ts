@@ -11,6 +11,7 @@ export interface User {
   isOnline?: boolean;
   isPrivate?: boolean;
   interests?: string[];
+  location?: string[];
   notificationSettings?: {
     pushEnabled: boolean;
     newMessages: boolean;

@@ -4,7 +4,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { createSocketConnection } from '../lib/sockets/socket';
 import { setOnlineUsers, updateChat } from '../store/slices/chatSlice';
-import { Chat } from '../types';
+import { incomingCall, acceptCall, endCall } from '../store/slices/callSlice';
+import { addToast } from '../store/slices/toastSlice';
+import { Chat, User } from '../types';
 
 
 interface SocketContextType {
@@ -51,8 +53,34 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         dispatch(updateChat(updatedChat));
       };
 
+      const handleIncomingCall = ({ from, chatId }: { from: User; chatId: string }) => {
+        console.log('[Socket] Incoming call from:', from.username);
+        dispatch(incomingCall({ caller: from, chatId }));
+      };
+
+      const handleCallAccepted = ({ signal }: { signal: any }) => {
+        console.log('[Socket] Call accepted');
+        dispatch(acceptCall());
+      };
+
+      const handleCallRejected = () => {
+        console.log('[Socket] Call rejected');
+        dispatch(endCall());
+        dispatch(addToast({ message: 'Call rejected', type: 'info' }));
+      };
+
+      const handleCallEnded = () => {
+        console.log('[Socket] Call ended by other party');
+        dispatch(endCall());
+        dispatch(addToast({ message: 'Call ended', type: 'info' }));
+      };
+
       newSocket.on('online_users', handleOnlineUsers);
       newSocket.on('update_chat', handleUpdateChat);
+      newSocket.on('incoming_call', handleIncomingCall);
+      newSocket.on('call_accepted', handleCallAccepted);
+      newSocket.on('call_rejected', handleCallRejected);
+      newSocket.on('call_ended', handleCallEnded);
 
       newSocket.on('reconnect', (attempt) => {
 

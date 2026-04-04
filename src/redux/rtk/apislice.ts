@@ -5,6 +5,7 @@ const baseurl = import.meta.env.VITE_BASE_URL;
 
 export const apiSlice = createApi({
     reducerPath: "apiSlice",
+    tagTypes: ["FriendRequest"],
     baseQuery: fetchBaseQuery({
         baseUrl: baseurl,
         prepareHeaders: (headers, { getState }) => {
