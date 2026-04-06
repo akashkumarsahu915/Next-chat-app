@@ -1,6 +1,7 @@
-import { Phone, Video, MoreVertical, Search, ChevronLeft, Ban, Flag, AlertTriangle } from 'lucide-react';
+import { Phone, Video, MoreVertical, Search, ChevronLeft, Ban, Flag, AlertTriangle, UserPlus, LogOut, Info } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setSelectedChat } from '../../store/slices/chatSlice';
+import { setActiveModal } from '../../store/slices/uiSlice';
 import { blockUser } from '../../store/slices/friendsSlice';
 import { addToast } from '../../store/slices/toastSlice';
 import { Avatar } from '../ui/Avatar';
@@ -17,6 +18,7 @@ interface ChatHeaderProps {
 }
 
 import { initiateCall } from '../../store/slices/callSlice';
+import { useRemoveUserFromGroupMutation } from '../../store/slices/group.slice';
 
 export function ChatHeader({ chat }: ChatHeaderProps) {
   const dispatch = useDispatch();
@@ -24,6 +26,7 @@ export function ChatHeader({ chat }: ChatHeaderProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [modalType, setModalType] = useState<'block' | 'report'>('block');
+  const [removeUser] = useRemoveUserFromGroupMutation();
 
   // Identify the other participant for private chats
   const otherParticipant = chat.isGroup 
@@ -60,6 +63,19 @@ export function ChatHeader({ chat }: ChatHeaderProps) {
       type: 'success' 
     }));
     setShowBlockModal(false);
+  };
+  
+  const handleLeaveGroup = async () => {
+    if (!chat._id || !user?._id) return;
+    try {
+      await removeUser({ chatId: chat._id, userId: user._id }).unwrap();
+      dispatch(addToast({ message: `You left ${chatName}`, type: 'success' }));
+      dispatch(setSelectedChat(null));
+    } catch (error: any) {
+      console.error('Failed to leave group:', error);
+      const errorMessage = error?.data?.message || 'Failed to leave group';
+      dispatch(addToast({ message: errorMessage, type: 'error' }));
+    }
   };
 
   return (
@@ -150,6 +166,41 @@ export function ChatHeader({ chat }: ChatHeaderProps) {
                         <Ban className="h-4 w-4" />
                         <span className="font-medium">Block User</span>
                       </button>
+                    )}
+                    {chat.isGroup && (
+                      <>
+                        <button
+                          onClick={() => {
+                            dispatch(setActiveModal('group-info'));
+                            setShowMenu(false);
+                          }}
+                          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-foreground hover:bg-muted transition-colors"
+                        >
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">Group Info</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            dispatch(setActiveModal('add-user'));
+                            setShowMenu(false);
+                          }}
+                          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                          <span className="font-medium">Add Member</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleLeaveGroup();
+                            setShowMenu(false);
+                          }}
+                          className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          <span className="font-medium">Leave Group</span>
+                        </button>
+                        <div className="my-1 border-t border-border/50" />
+                      </>
                     )}
                     <button
                       onClick={() => {

@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { RootState } from '../../store';
 import { setActiveModal } from '../../store/slices/uiSlice';
 import { setChats, setSelectedChat } from '../../store/slices/chatSlice';
+import { addToast } from '../../store/slices/toastSlice';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Avatar } from '../ui/Avatar';
@@ -14,6 +15,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import { useGetFriendListQuery } from '../../store/slices/friends.slice';
 import { useAccessChatMutation } from '../../store/slices/chat.slice';
+import { useCreateGroupMutation } from '../../store/slices/group.slice';
 import { Loader2 } from 'lucide-react';
 
 export function NewChatModal() {
@@ -27,6 +29,7 @@ export function NewChatModal() {
 
   const { data: friendData, isLoading: isLoadingFriends, isError: friendError } = useGetFriendListQuery();
   const [accessChat, { isLoading: isCreatingChat }] = useAccessChatMutation();
+  const [createGroup, { isLoading: isCreatingGroup }] = useCreateGroupMutation();
 
   const friends = friendData?.friends || [];
 
@@ -61,22 +64,23 @@ export function NewChatModal() {
         console.error('Failed to access chat:', error);
       }
     } else {
-      // Group chat logic to be implemented when API is available
-      const newChat: Chat = {
-        _id: `chat-${Date.now()}`,
-        name: groupName,
-        isGroup: true,
-        participants: selectedUsers,
-        unreadCount: 0,
-        lastMessage: undefined,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      dispatch(setChats([newChat, ...chats]));
-      dispatch(setSelectedChat(newChat._id));
-      dispatch(setActiveModal(null));
-      navigate('/');
+      try {
+        const chat = await createGroup({ 
+          groupName, 
+          participants: selectedUsers.map(u => u._id) 
+        }).unwrap();
+        
+        // The API returns the chat object with its _id
+        dispatch(setSelectedChat(chat._id));
+        dispatch(addToast({ 
+          message: `Group "${groupName}" created successfully!`, 
+          type: 'success' 
+        }));
+        dispatch(setActiveModal(null));
+        navigate('/');
+      } catch (error: any) {
+        console.error('Failed to create group:', error);
+      }
     }
   };
   return (
@@ -194,10 +198,10 @@ export function NewChatModal() {
           </p>
           <Button 
             onClick={handleCreateChat} 
-            disabled={selectedUsers.length === 0 || (isGroup && !groupName.trim()) || isCreatingChat}
+            disabled={selectedUsers.length === 0 || (isGroup && !groupName.trim()) || isCreatingChat || isCreatingGroup}
             className="rounded-2xl px-6 min-w-[120px]"
           >
-            {isCreatingChat ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Chat'}
+            {(isCreatingChat || isCreatingGroup) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Chat'}
           </Button>
         </div>
       </motion.div>

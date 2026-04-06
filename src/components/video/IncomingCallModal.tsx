@@ -4,7 +4,6 @@ import { RootState } from '../../store';
 import { acceptCall, endCall } from '../../store/slices/callSlice';
 import { useSocket } from '../../context/SocketContext';
 import { Avatar } from '../ui/Avatar';
-import { Button } from '../ui/Button';
 import { Phone, PhoneOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 

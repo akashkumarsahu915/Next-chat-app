@@ -14,6 +14,7 @@ import { ChevronDown } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { motion, AnimatePresence } from 'motion/react';
 import { useGetChatsQuery, useGetMessagesQuery, useSendMessageMutation, useMarkChatAsReadMutation } from '../store/rtk/apis/chat.slice';
+import { useSendGroupMessageMutation, useGetGroupMessagesQuery, useMarkGroupChatAsReadMutation } from '../store/slices/group.slice';
 import { useSocket } from '../context/SocketContext';
 import { markAsReadSuccess } from '../store/slices/chatSlice';
 
@@ -29,7 +30,9 @@ export function Dashboard() {
   const { data: chatData } = useGetChatsQuery();
   const { chats } = useSelector((state: RootState) => state.chat);
   const [sendMessage] = useSendMessageMutation();
+  const [sendGroupMessage] = useSendGroupMessageMutation();
   const [markAsRead] = useMarkChatAsReadMutation();
+  const [markGroupChatAsRead] = useMarkGroupChatAsReadMutation();
   const markAsReadRef = useRef<string | null>(null);
   const { socket } = useSocket();
 
@@ -91,7 +94,11 @@ export function Dashboard() {
       // If it's the current chat, mark as read
       if (newMessage.chatId === selectedChatId) {
         console.log('[DEBUG] Current chat active, triggering markAsRead');
-        markAsRead(selectedChatId);
+        if (selectedChat?.isGroup) {
+          markGroupChatAsRead(selectedChatId);
+        } else {
+          markAsRead(selectedChatId);
+        }
       }
     };
 
@@ -114,12 +121,19 @@ export function Dashboard() {
 
 
   // Fetch message history when selectedChatId changes
+  const selectedChat = (chats || []).find(c => c._id === selectedChatId);
+
   const { data: historyData, isLoading: isHistoryLoading } = useGetMessagesQuery(
     { chatId: selectedChatId as string, page: 1, limit: 20 },
-    { skip: !selectedChatId }
+    { skip: !selectedChatId || selectedChat?.isGroup }
   );
 
-  const selectedChat = (chats || []).find(c => c._id === selectedChatId);
+  const { data: groupHistoryData, isLoading: isGroupHistoryLoading } = useGetGroupMessagesQuery(
+    selectedChatId as string,
+    { skip: !selectedChatId || !selectedChat?.isGroup }
+  );
+
+  const isMessagesLoading = selectedChat?.isGroup ? isGroupHistoryLoading : isHistoryLoading;
   const currentMessages = selectedChatId ? messages[selectedChatId] || [] : [];
   const isOtherTyping = selectedChatId ? isTyping[selectedChatId] : false;
 
@@ -144,20 +158,35 @@ export function Dashboard() {
   // Mark as read when selecting chat
   useEffect(() => {
     if (selectedChatId && markAsReadRef.current !== selectedChatId) {
-      markAsRead(selectedChatId);
+      if (selectedChat?.isGroup) {
+        markGroupChatAsRead(selectedChatId);
+      } else {
+        markAsRead(selectedChatId);
+      }
       markAsReadRef.current = selectedChatId;
     }
-  }, [selectedChatId, markAsRead]);
+  }, [selectedChatId, selectedChat?.isGroup, markAsRead, markGroupChatAsRead]);
 
   // Sync history messages to Redux store
   useEffect(() => {
-    if (historyData?.messages && selectedChatId) {
-      dispatch(setMessages({
-        chatId: selectedChatId,
-        messages: historyData.messages
-      }));
+    if (!selectedChatId) return;
+
+    if (selectedChat?.isGroup) {
+      if (groupHistoryData) {
+        dispatch(setMessages({
+          chatId: selectedChatId,
+          messages: groupHistoryData
+        }));
+      }
+    } else {
+      if (historyData?.messages) {
+        dispatch(setMessages({
+          chatId: selectedChatId,
+          messages: historyData.messages
+        }));
+      }
     }
-  }, [historyData, selectedChatId, dispatch]);
+  }, [historyData, groupHistoryData, selectedChatId, selectedChat?.isGroup, dispatch]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -183,11 +212,19 @@ export function Dashboard() {
     dispatch(addMessage({ chatId: selectedChatId, message: newMessage }));
 
     try {
-      await sendMessage({
-        chatId: selectedChatId,
-        content,
-        type
-      }).unwrap();
+      if (selectedChat?.isGroup) {
+        await sendGroupMessage({
+          chatId: selectedChatId,
+          content,
+          type
+        }).unwrap();
+      } else {
+        await sendMessage({
+          chatId: selectedChatId,
+          content,
+          type
+        }).unwrap();
+      }
 
       // The history will automatically re-fetch due to tag invalidation
     } catch (error) {
@@ -207,7 +244,7 @@ export function Dashboard() {
             onScroll={handleScroll}
             className="flex-1 overflow-y-auto p-4 scroll-smooth"
           >
-            {isHistoryLoading && currentMessages.length === 0 ? (
+            {isMessagesLoading && currentMessages.length === 0 ? (
               <div className="h-full flex items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               </div>

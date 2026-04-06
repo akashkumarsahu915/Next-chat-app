@@ -38,7 +38,7 @@ const friendsSlice = createSlice({
       state.incomingRequests = state.incomingRequests.filter(req => req.id !== action.payload);
     },
     addFriend: (state, action: PayloadAction<User>) => {
-      if (!state.friends.find(f => f.id === action.payload.id)) {
+      if (!state.friends.find(f => f._id === action.payload._id)) {
         state.friends.push(action.payload);
       }
     },
@@ -52,9 +52,9 @@ const friendsSlice = createSlice({
       if (!state.blockedUserIds.includes(action.payload)) {
         state.blockedUserIds.push(action.payload);
         // Also remove from friends and requests if they were there
-        state.friends = state.friends.filter(f => f.id !== action.payload);
-        state.incomingRequests = state.incomingRequests.filter(r => r.from.id !== action.payload);
-        state.sentRequests = state.sentRequests.filter(r => r.to.id !== action.payload);
+        state.friends = state.friends.filter(f => f._id !== action.payload);
+        state.incomingRequests = state.incomingRequests.filter(r => r.from._id !== action.payload);
+        state.sentRequests = state.sentRequests.filter(r => r.to._id !== action.payload);
       }
     },
     unblockUser: (state, action: PayloadAction<string>) => {

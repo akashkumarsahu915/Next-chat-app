@@ -2,6 +2,8 @@ import React from 'react';
 import { Sidebar } from '../chat/Sidebar';
 import { MobileNav } from './MobileNav';
 import { NewChatModal } from '../chat/NewChatModal';
+import { AddUserModal } from '../chat/AddUserModal';
+import { GroupInfoModal } from '../chat/GroupInfoModal';
 import { useSelector } from 'react-redux';
 
 import { RootState } from '../../store';
@@ -44,6 +46,8 @@ export function Layout() {
 
       {/* Modals */}
       {activeModal === 'new-chat' && <NewChatModal />}
+      {activeModal === 'add-user' && <AddUserModal />}
+      {activeModal === 'group-info' && <GroupInfoModal />}
       
       <MobileNav />
     </div>
