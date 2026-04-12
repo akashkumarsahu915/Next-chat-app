@@ -4,18 +4,21 @@ import { RootState } from '../store';
 import { MobileHeader } from '../components/layout/MobileHeader';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
-import { UserPlus, MessageSquare, Shield, Info, MapPin, Link as LinkIcon, Camera } from 'lucide-react';
+import { UserPlus, MessageSquare, Shield, Info, MapPin, Link as LinkIcon, Camera, Bell } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { updateUser } from '../store/slices/authSlice';
 import { addToast } from '../store/slices/toastSlice';
 import { useNavigate } from 'react-router-dom';
 import { notificationService } from '../lib/notificationService';
+import { useGetFriendListQuery } from '../store/slices/friends.slice';
 
 export function ProfilePage() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { notifications } = useSelector((state: RootState) => state.notifications);
+  const { data: friendListData, isLoading: isLoadingFriends } = useGetFriendListQuery();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) return null;
@@ -27,11 +30,11 @@ export function ProfilePage() {
   const handlePrivacyToggle = () => {
     const newStatus = !user.isPrivate;
     dispatch(updateUser({ isPrivate: newStatus }));
-    dispatch(addToast({ 
-      message: `Profile is now ${newStatus ? 'Private' : 'Public'}`, 
-      type: 'info' 
+    dispatch(addToast({
+      message: `Profile is now ${newStatus ? 'Private' : 'Public'}`,
+      type: 'info'
     }));
-    
+
     notificationService.notify(
       'Privacy Updated',
       `Your profile is now ${newStatus ? 'Private' : 'Public'}`,
@@ -55,6 +58,9 @@ export function ProfilePage() {
     }
   };
 
+  const friends = friendListData?.friends || [];
+  const recentActivity = notifications.slice(0, 5);
+
   return (
     <>
       <MobileHeader title="Profile" />
@@ -63,17 +69,17 @@ export function ProfilePage() {
           <div className="absolute -bottom-16 left-8">
             <div className="relative group">
               <Avatar name={user.username} src={user.profilePicture} size="xl" isOnline={true} className="border-4 border-background shadow-xl" />
-              <button 
+              {/* <button 
                 onClick={handleAvatarClick}
                 className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity border-4 border-transparent"
               >
                 <Camera className="h-8 w-8 text-white" />
-              </button>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
+              </button> */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
                 accept="image/*"
               />
             </div>
@@ -90,20 +96,20 @@ export function ProfilePage() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <Button 
-                variant="outline" 
-                className="rounded-full"
-                onClick={handlePrivacyToggle}
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Privacy Settings
-              </Button>
-              <Button 
+              <Button
                 className="rounded-full px-6"
                 onClick={handleEditProfile}
               >
                 Edit Profile
               </Button>
+              {/* <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={handlePrivacyToggle}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Privacy Settings
+              </Button> */}
             </div>
           </div>
 
@@ -121,11 +127,11 @@ export function ProfilePage() {
                 <div className="grid grid-cols-2 gap-4 mt-6">
                   <div className="flex items-center text-muted-foreground text-sm">
                     <MapPin className="h-4 w-4 mr-2" />
-                    San Francisco, CA
+                    {user.location && user.location.length > 0 ? user.location.join(', ') : 'No location set'}
                   </div>
                   <div className="flex items-center text-muted-foreground text-sm">
                     <LinkIcon className="h-4 w-4 mr-2" />
-                    nexchat.app/alex
+                    nexchat.app/{user.username.toLowerCase().replace(' ', '_')}
                   </div>
                 </div>
               </section>
@@ -133,17 +139,25 @@ export function ProfilePage() {
               <section className="bg-card p-6 rounded-3xl shadow-sm border border-border">
                 <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
                 <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center space-x-4 p-3 rounded-2xl hover:bg-muted transition-colors">
-                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <MessageSquare className="h-5 w-5 text-primary" />
+                  {recentActivity.length > 0 ? (
+                    recentActivity.map((activity) => (
+                      <div key={activity.id} className="flex items-center space-x-4 p-3 rounded-2xl hover:bg-muted transition-colors">
+                        <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                          {activity.type === 'message' ? (
+                            <MessageSquare className="h-5 w-5 text-primary" />
+                          ) : (
+                            <Bell className="h-5 w-5 text-primary" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{activity.title}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(activity.timestamp).toLocaleDateString()} at {new Date(activity.timestamp).toLocaleTimeString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Joined "Designers Hub" group</p>
-                        <p className="text-xs text-muted-foreground">2 days ago</p>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-3">No recent activity to show.</p>
+                  )}
                 </div>
               </section>
             </div>
@@ -151,35 +165,35 @@ export function ProfilePage() {
             {/* Right Column */}
             <div className="space-y-8">
               <section className="bg-card p-6 rounded-3xl shadow-sm border border-border">
-                <h3 className="text-lg font-semibold mb-4">Friends</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Friends</h3>
+                  <span className="text-xs font-medium text-muted-foreground">{friends.length} friends</span>
+                </div>
                 <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                    <Avatar 
-                      key={i}
-                      name={`Friend ${i}`} 
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`} 
-                      size="md" 
-                      className="cursor-pointer hover:scale-110 transition-transform"
-                    />
-                  ))}
+                  {isLoadingFriends ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-12 w-12 rounded-full bg-muted animate-pulse" />
+                    ))
+                  ) : friends.length > 0 ? (
+                    friends.slice(0, 12).map((friend) => (
+                      <Avatar
+                        key={friend._id}
+                        name={friend.username}
+                        src={friend.profilePicture}
+                        size="md"
+                        className="cursor-pointer hover:scale-110 transition-transform"
+                      // onClick={() => navigate(`/chat/${friend._id}`)}
+                      />
+                    ))
+                  ) : (
+                    <p className="col-span-4 text-sm text-muted-foreground text-center py-4">No friends yet.</p>
+                  )}
                 </div>
-                <Button variant="ghost" className="w-full mt-4 text-primary">
-                  View All Friends
-                </Button>
-              </section>
-
-              <section className={cn(
-                "p-6 rounded-3xl shadow-sm border relative overflow-hidden",
-                user.isPrivate ? "bg-muted border-border" : "bg-primary/5 border-primary/20"
-              )}>
-                <h3 className="text-lg font-semibold mb-2 text-foreground">Privacy Status</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {user.isPrivate ? "Your profile is private. Only friends can see your full info." : "Your profile is public. Anyone can find you and send requests."}
-                </p>
-                <div className="flex items-center space-x-2">
-                  <div className={cn("h-2 w-2 rounded-full", user.isPrivate ? "bg-muted-foreground" : "bg-emerald-500")} />
-                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">{user.isPrivate ? "Private" : "Public"}</span>
-                </div>
+                {friends.length > 0 && (
+                  <Button variant="ghost" className="w-full mt-4 text-primary" onClick={() => navigate('/requests')}>
+                    View All Friends
+                  </Button>
+                )}
               </section>
             </div>
           </div>

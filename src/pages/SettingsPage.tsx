@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { toggleTheme, updateNotificationSettings } from '../store/slices/uiSlice';
@@ -9,11 +9,14 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Toggle } from '../components/ui/Toggle';
 import { Avatar } from '../components/ui/Avatar';
-import { User, Bell, Shield, Moon, Sun, Camera, Save, LogOut, Copy, Check } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useRef } from 'react';
+import { 
+  User, Bell, Shield, Moon, Sun, Camera, Save, LogOut, Copy, Check, 
+  MapPin, Sparkles, X, Plus, Loader2 
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { notificationService } from '../lib/notificationService';
+import { useUploadImageMutation, useUpdateProfileMutation } from '../store/slices/settings';
 
 export function SettingsPage() {
   const dispatch = useDispatch();
@@ -24,7 +27,15 @@ export function SettingsPage() {
   const [isPrivate, setIsPrivate] = useState(user?.isPrivate || false);
   const [username, setUsername] = useState(user?.username || '');
   const [bio, setBio] = useState(user?.bio || '');
+  const [locations, setLocations] = useState<string[]>(user?.location || []);
+  const [newLocation, setNewLocation] = useState('');
+  const [interests, setInterests] = useState<string[]>(user?.interests || []);
+  const [newInterest, setNewInterest] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState(user?.profilePicture || '');
   const [copied, setCopied] = useState(false);
+
+  const [uploadImage, { isLoading: isUploading }] = useUploadImageMutation();
+  const [updateProfile, { isLoading: isUpdating }] = useUpdateProfileMutation();
 
   const handleToggleNotification = (key: keyof typeof notificationSettings) => {
     dispatch(updateNotificationSettings({ [key]: !notificationSettings[key] }));
@@ -65,30 +76,76 @@ export function SettingsPage() {
     }
   };
 
-  const handleSaveProfile = () => {
-    dispatch(updateUser({ username, bio }));
-    dispatch(addToast({ message: 'Profile updated successfully!', type: 'success' }));
-    
-    notificationService.notify(
-      'Profile Updated',
-      'Your profile information has been saved successfully.',
-      'system'
-    );
+  const handleSaveProfile = async () => {
+    try {
+      const result = await updateProfile({
+        username,
+        bio,
+        avatar: avatarUrl,
+        isPrivate,
+        interests,
+        location: locations,
+        notificationSettings: {
+          pushEnabled: notificationSettings.pushEnabled,
+          newMessages: notificationSettings.newMessages,
+          friendRequests: notificationSettings.friendRequests,
+          systemAlerts: notificationSettings.systemAlerts,
+        }
+      }).unwrap();
+
+      dispatch(updateUser({ 
+        username, 
+        bio, 
+        profilePicture: avatarUrl, 
+        isPrivate, 
+        interests, 
+        location: locations 
+      }));
+      
+      dispatch(addToast({ message: 'Profile updated successfully!', type: 'success' }));
+      
+      notificationService.notify(
+        'Profile Updated',
+        'Your profile information has been saved successfully.',
+        'system'
+      );
+    } catch (error: any) {
+      dispatch(addToast({ message: error?.data?.message || 'Failed to update profile', type: 'error' }));
+    }
   };
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        dispatch(updateUser({ profilePicture: reader.result as string }));
-        dispatch(addToast({ message: 'Profile picture updated successfully!', type: 'success' }));
-      };
-      reader.readAsDataURL(file);
+      const formData = new FormData();
+      formData.append('image', file); // Field name expected by Multer is 'image'
+      
+      try {
+        const response = await uploadImage(formData).unwrap();
+        setAvatarUrl(response.imageUrl);
+        dispatch(updateUser({ profilePicture: response.imageUrl }));
+        dispatch(addToast({ message: 'Profile picture uploaded successfully!', type: 'success' }));
+      } catch (error: any) {
+        dispatch(addToast({ message: error?.data?.message || 'Failed to upload image', type: 'error' }));
+      }
+    }
+  };
+
+  const handleAddInterest = () => {
+    if (newInterest.trim() && !interests.includes(newInterest.trim())) {
+      setInterests([...interests, newInterest.trim()]);
+      setNewInterest('');
+    }
+  };
+
+  const handleAddLocation = () => {
+    if (newLocation.trim() && !locations.includes(newLocation.trim())) {
+      setLocations([...locations, newLocation.trim()]);
+      setNewLocation('');
     }
   };
 
@@ -103,6 +160,7 @@ export function SettingsPage() {
 
   const handleSelectAvatar = (seed: string) => {
     const url = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    setAvatarUrl(url);
     dispatch(updateUser({ profilePicture: url }));
     dispatch(addToast({ message: `Avatar updated to ${seed}!`, type: 'success' }));
   };
@@ -124,12 +182,17 @@ export function SettingsPage() {
               </h3>
               <div className="flex flex-col items-center mb-8">
                 <div className="relative group">
-                  <Avatar name={user?.username || ''} src={user?.profilePicture} size="xl" />
+                  <Avatar name={user?.username || ''} src={avatarUrl} size="xl" />
                   <button 
                     onClick={handleAvatarClick}
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    disabled={isUploading}
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-100"
                   >
-                    <Camera className="h-8 w-8 text-white" />
+                    {isUploading ? (
+                      <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    ) : (
+                      <Camera className="h-8 w-8 text-white" />
+                    )}
                   </button>
                   <input 
                     type="file" 
@@ -139,7 +202,9 @@ export function SettingsPage() {
                     accept="image/*"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">Click to upload or choose below</p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {isUploading ? 'Uploading...' : 'Click to upload or choose below'}
+                </p>
               </div>
 
               <div className="mb-6">
@@ -151,7 +216,7 @@ export function SettingsPage() {
                       onClick={() => handleSelectAvatar(seed)}
                       className={cn(
                         "relative rounded-xl overflow-hidden border-2 transition-all hover:scale-105 active:scale-95",
-                        user?.profilePicture?.includes(`seed=${seed}`) 
+                        user?.profilePicture?.includes(`seed=${seed}`) || avatarUrl?.includes(`seed=${seed}`) 
                           ? "border-primary ring-2 ring-primary/20" 
                           : "border-transparent hover:border-border"
                       )}
@@ -197,6 +262,108 @@ export function SettingsPage() {
                   onChange={(e) => setBio(e.target.value)} 
                   placeholder="Tell us about yourself" 
                 />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+                  {/* Location Section */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block flex items-center">
+                      <MapPin className="h-4 w-4 mr-1.5 text-emerald-500" />
+                      Locations
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-3 min-h-[40px]">
+                      <AnimatePresence>
+                        {locations.map((loc, index) => (
+                          <motion.span 
+                            key={loc}
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium px-3 py-1.5 rounded-full flex items-center border border-emerald-500/20"
+                          >
+                            {loc}
+                            <button 
+                              type="button"
+                              onClick={() => setLocations(locations.filter((_, i) => i !== index))}
+                              className="ml-2 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </motion.span>
+                        ))}
+                      </AnimatePresence>
+                      {locations.length === 0 && (
+                        <p className="text-xs text-muted-foreground italic py-1">No locations added</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input 
+                        value={newLocation} 
+                        onChange={(e) => setNewLocation(e.target.value)} 
+                        placeholder="Add location (e.g. London)" 
+                        className="flex-1"
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddLocation())}
+                      />
+                      <Button 
+                        type="button" 
+                        onClick={handleAddLocation}
+                        variant="outline"
+                        className="rounded-xl px-3 border-dashed hover:border-emerald-500 hover:text-emerald-500"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Interests Section */}
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block flex items-center">
+                      <Sparkles className="h-4 w-4 mr-1.5 text-primary" />
+                      Interests
+                    </label>
+                    <div className="flex flex-wrap gap-2 mb-3 min-h-[40px]">
+                      <AnimatePresence>
+                        {interests.map((interest, index) => (
+                          <motion.span 
+                            key={interest}
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            className="bg-primary/10 text-primary text-xs font-medium px-3 py-1.5 rounded-full flex items-center border border-primary/20"
+                          >
+                            {interest}
+                            <button 
+                              type="button"
+                              onClick={() => setInterests(interests.filter((_, i) => i !== index))}
+                              className="ml-2 hover:text-primary transition-colors hover:scale-110"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </motion.span>
+                        ))}
+                      </AnimatePresence>
+                      {interests.length === 0 && (
+                        <p className="text-xs text-muted-foreground italic py-1">No interests added</p>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input 
+                        value={newInterest} 
+                        onChange={(e) => setNewInterest(e.target.value)} 
+                        placeholder="Add interest (e.g. Tech)" 
+                        className="flex-1"
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddInterest())}
+                      />
+                      <Button 
+                        type="button" 
+                        onClick={handleAddInterest}
+                        variant="outline"
+                        className="rounded-xl px-3 border-dashed hover:border-primary hover:text-primary"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -333,14 +500,23 @@ export function SettingsPage() {
 
             <div className="flex justify-end pt-4">
               <Button 
-                className="rounded-2xl px-8 h-12"
+                className="rounded-2xl px-8 h-12 min-w-[160px]"
                 onClick={() => {
-                  dispatch(updateUser({ isPrivate }));
                   handleSaveProfile();
                 }}
+                disabled={isUpdating}
               >
-                <Save className="h-5 w-5 mr-2" />
-                Save All Changes
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-5 w-5 mr-2" />
+                    Save All Changes
+                  </>
+                )}
               </Button>
             </div>
           </div>

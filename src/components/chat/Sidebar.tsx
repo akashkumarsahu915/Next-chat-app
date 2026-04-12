@@ -105,15 +105,15 @@ export function Sidebar() {
         <div className="flex items-center space-x-3">
           <Avatar name={user?.username || 'Guest'} src={user?.profilePicture} size="md" isOnline={true} />
           <div className="flex flex-col text-left overflow-hidden">
-            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate w-24">{user?.username || 'Guest'}</span>
+            <span className="text-sm font-semibold text-foreground truncate w-24">{user?.username || 'Guest'}</span>
             <span className="text-xs text-emerald-500">Online</span>
           </div>
         </div>
         <div className="flex items-center space-x-1">
           <NotificationDropdown />
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="rounded-full"
             onClick={() => dispatch(toggleTheme())}
           >
@@ -123,9 +123,9 @@ export function Sidebar() {
               <Moon className="h-5 w-5 text-muted-foreground" />
             )}
           </Button>
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             className="rounded-full"
             onClick={() => dispatch(setActiveModal('new-chat'))}
           >
@@ -136,8 +136,8 @@ export function Sidebar() {
 
       {/* Search */}
       <div className="p-4 space-y-4">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           className="w-full justify-start space-x-3 px-3 py-6 rounded-2xl bg-muted/50 hover:bg-muted border border-border/50 transition-all group"
           onClick={() => navigate('/requests')}
         >
@@ -162,8 +162,8 @@ export function Sidebar() {
           <Plus className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
         </Button>
 
-        <Input 
-          placeholder="Search chats..." 
+        <Input
+          placeholder="Search chats..."
           icon={<Search className="h-4 w-4" />}
           className="bg-muted border-none placeholder:text-muted-foreground"
           value={searchQuery}
@@ -189,12 +189,12 @@ export function Sidebar() {
             const chatPic = chat.isGroup ? undefined : otherParticipant?.profilePicture;
             // Unread count: Check user-specific map first, then legacy fallback
             const myId = user?._id ? String(user._id) : '';
-            const unreadCount = myId && chat.unreadCounts 
+            const unreadCount = myId && chat.unreadCounts
               ? (Object.entries(chat.unreadCounts).find(([id]) => String(id) === myId)?.[1] || 0)
               : (chat.unreadCount || 0);
-            
+
             const lastMsg = chat.lastMessage;
-            
+
             if (unreadCount > 0) {
               console.log(`[DEBUG] RENDERING BADGE FOR ${myId}: ${unreadCount}`);
             }
@@ -211,9 +211,9 @@ export function Sidebar() {
                   selectedChatId === chat._id && 'bg-primary/10'
                 )}
               >
-                <Avatar 
-                  name={chatName || 'Chat'} 
-                  src={chatPic} 
+                <Avatar
+                  name={chatName || 'Chat'}
+                  src={chatPic}
                   isOnline={!chat.isGroup && otherParticipant?.isOnline}
                 />
                 <div className="flex-1 text-left min-w-0">
@@ -225,7 +225,7 @@ export function Sidebar() {
                       {chatName}
                     </span>
                     <div className="flex items-center space-x-2">
-                       <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                      <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
                         {lastMsg ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                       </span>
                       {unreadCount > 0 && (
